@@ -1,4 +1,4 @@
-package com.example.bluetoothdevicelocator
+package cz.vsb.fei.bluetoothdevicelocator
 
 import org.junit.Test
 

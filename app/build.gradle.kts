@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.bluetoothdevicelocator"
+    namespace = "cz.vsb.fei.bluetoothdevicelocator"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.bluetoothdevicelocator"
+        applicationId = "cz.vsb.fei.bluetoothdevicelocator"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
@@ -45,6 +45,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.room3.runtime)
+    annotationProcessor(libs.androidx.room3.compiler)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

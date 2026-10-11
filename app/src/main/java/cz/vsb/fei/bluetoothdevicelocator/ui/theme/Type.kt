@@ -1,4 +1,4 @@
-package com.example.bluetoothdevicelocator.ui.theme
+package cz.vsb.fei.bluetoothdevicelocator.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
