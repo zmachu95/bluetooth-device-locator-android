@@ -14,7 +14,7 @@ data class DeviceEntity(
      * The device's artificial primary key.
      */
     @PrimaryKey(autoGenerate = true)
-    val deviceId: Long,
+    val deviceId: Long = 0,
 
     /**
      * The device's name.
@@ -25,4 +25,10 @@ data class DeviceEntity(
      * The device's MAC address.
      */
     val macAddress: String
-)
+) {
+
+    /**
+     * Secondary constructor that ignores ID.
+     */
+    constructor(name: String, macAddress: String) : this(0, name, macAddress)
+}

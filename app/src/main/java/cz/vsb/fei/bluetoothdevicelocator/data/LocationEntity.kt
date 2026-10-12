@@ -1,20 +1,21 @@
 package cz.vsb.fei.bluetoothdevicelocator.data
 
 import androidx.room3.Entity
+import androidx.room3.Index
 import androidx.room3.PrimaryKey
-import kotlin.time.TimeMark
+import kotlin.time.Instant
 
 /**
  * Stored location record.
  */
-@Entity
+@Entity(indices = [Index(value=["epochMilliseconds"], unique = true)])
 data class LocationEntity (
 
     /**
      * The location's artificial primary key.
      */
     @PrimaryKey(autoGenerate = true)
-    val locationId: Long,
+    val locationId: Long = 0,
 
     /**
      * The location's latitude.
@@ -32,7 +33,20 @@ data class LocationEntity (
     val accuracy: Double,
 
     /**
-     * The location's timestamp.
+     * The location's timestamp represented as number of milliseconds from epoch.
      */
-    val timestamp: TimeMark
-)
+    val epochMilliseconds: Long
+) {
+
+    /**
+     * Secondary constructor that ignores ID and accepts Instant object.
+     */
+    constructor(latitude: Double, longitude: Double, accuracy: Double, timestamp: Instant)
+            : this(0, latitude, longitude, accuracy, timestamp.toEpochMilliseconds())
+
+    /**
+     * Gets the location's timestamp as Instant object.
+     */
+    val timestamp: Instant
+        get() = Instant.fromEpochMilliseconds(epochMilliseconds)
+}
