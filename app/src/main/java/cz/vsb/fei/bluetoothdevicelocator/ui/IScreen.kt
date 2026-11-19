@@ -1,6 +1,7 @@
 package cz.vsb.fei.bluetoothdevicelocator.ui
 
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
+import cz.vsb.fei.bluetoothdevicelocator.data.LocationEntity
 
 /**
  * Sealed interface grouping all application screens.
@@ -36,5 +37,16 @@ sealed interface IScreen {
     /**
      * Screen for finding a device.
      */
-    object FindDevice : IScreen
+    data class FindDevice(
+
+        /**
+         * Device to find.
+         */
+        val device: DeviceEntity?,
+
+        /**
+         * Device's saved location.
+         */
+        val location: LocationEntity?,
+    ) : IScreen
 }

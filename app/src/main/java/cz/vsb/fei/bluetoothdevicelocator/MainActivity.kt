@@ -1,9 +1,11 @@
 package cz.vsb.fei.bluetoothdevicelocator
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,20 +29,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceData
-import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
-import cz.vsb.fei.bluetoothdevicelocator.data.LocationEntity
+import cz.vsb.fei.bluetoothdevicelocator.data.LocatorRepository
 import cz.vsb.fei.bluetoothdevicelocator.ui.ShowTrackedDevicesScreen
 import cz.vsb.fei.bluetoothdevicelocator.ui.SingleDeviceLocationsScreen
 import cz.vsb.fei.bluetoothdevicelocator.ui.StoreNearbyDevicesScreen
-import kotlin.time.Clock
+import cz.vsb.fei.bluetoothdevicelocator.viewmodel.LocatorViewModel
+import cz.vsb.fei.bluetoothdevicelocator.viewmodel.LocatorViewModelFactory
 
 class MainActivity : ComponentActivity() {
+    private val viewModel: LocatorViewModel by viewModels {
+        LocatorViewModelFactory(LocatorRepository(applicationContext))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             BluetoothDeviceLocatorTheme {
-                MainAppScaffold()
+                MainAppScaffold(viewModel)
             }
         }
     }
@@ -52,7 +58,8 @@ class MainActivity : ComponentActivity() {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainAppScaffold(defaultScreen: IScreen = IScreen.Menu) {
+fun MainAppScaffold(viewModel: LocatorViewModel, defaultScreen: IScreen = IScreen.Menu) {
+    val savedDevices by viewModel.allDevices.collectAsState()
 
     /**
      * Current screen to render.
@@ -70,35 +77,6 @@ fun MainAppScaffold(defaultScreen: IScreen = IScreen.Menu) {
         )
     }
 
-    /**
-     * Temporary list of saved devices used for testing.
-     */
-    val mockSavedDevices = remember {
-        mutableStateListOf(
-            DeviceEntity(deviceId = 1, name = "Moje sluchátka", macAddress = "AA:BB:CC:11:22:33"),
-            DeviceEntity(deviceId = 2, name = "Škoda Fabia", macAddress = "44:55:66:DD:EE:FF")
-        )
-    }
-
-    /**
-     * Temporary list of locations used for testing.
-     */
-    val mockLocations = remember {
-        mutableStateListOf(
-            LocationEntity(
-                locationId = 101,
-                latitude = 49.8306,
-                longitude = 18.1624,
-                accuracy = 4.2,
-                epochMilliseconds = Clock.System.now().toEpochMilliseconds()),
-            LocationEntity(locationId = 102,
-                latitude = 49.8312,
-                longitude = 18.1610,
-                accuracy = 12.5,
-                epochMilliseconds = Clock.System.now().toEpochMilliseconds() - 60000)
-        )
-    }
-
     Scaffold(
         topBar = {
             if (currentScreen != IScreen.Menu) {
@@ -110,7 +88,7 @@ fun MainAppScaffold(defaultScreen: IScreen = IScreen.Menu) {
                                 IScreen.StoreNearbyDevices -> stringResource(R.string.store_nearby_devices)
                                 IScreen.ShowTrackedDevices -> stringResource(R.string.show_tracked_devices)
                                 is IScreen.SingleDeviceLocations -> stringResource(R.string.select_location)
-                                IScreen.FindDevice -> stringResource(R.string.find_device)
+                                is IScreen.FindDevice -> stringResource(R.string.find_device)
                                 else -> ""
                             }
                         )
@@ -127,7 +105,7 @@ fun MainAppScaffold(defaultScreen: IScreen = IScreen.Menu) {
                                     )
                                 }
                             }
-                            is IScreen.SingleDeviceLocations, IScreen.FindDevice -> {
+                            is IScreen.SingleDeviceLocations, is IScreen.FindDevice -> {
                                 IconButton(
                                     onClick = { currentScreen = IScreen.ShowTrackedDevices }
                                 ) {
@@ -151,59 +129,72 @@ fun MainAppScaffold(defaultScreen: IScreen = IScreen.Menu) {
                     modifier = Modifier.padding(innerPadding)
                 )
 
-                IScreen.ShowTrackedDevices -> ShowTrackedDevicesScreen(
-                    devices = mockSavedDevices,
-                    onSelectLocation = { deviceId ->
-                        currentScreen = IScreen.SingleDeviceLocations(
-                            mockSavedDevices.find {
-                                device -> device.deviceId == deviceId
-                            }
-                        )
-                    },
-                    onDeleteDevice = { deviceId ->
-                        mockSavedDevices.removeIf { device -> device.deviceId == deviceId }
-                    },
-                    onUseLastLocation = { currentScreen = IScreen.FindDevice },
-                    onDeleteAllDevices = { mockSavedDevices.clear() },
-                    modifier = Modifier.padding(innerPadding)
-                )
+                IScreen.ShowTrackedDevices -> {
+                    val devicesLastLocations by viewModel.devicesLastLocations.collectAsState()
 
-                is IScreen.SingleDeviceLocations -> SingleDeviceLocationsScreen(
-                    device = (currentScreen as IScreen.SingleDeviceLocations).device,
-                    locations = mockLocations,
-                    onSelectSpecificLocation = {deviceId, locationId ->
-                        currentScreen = IScreen.FindDevice
-                    },
-                    onDeleteLocation = {locationId ->
-                        mockLocations.removeIf { location -> location.locationId == locationId }
-                    },
-                    onDeleteAllLocationsButRecent = {deviceId ->
-                        mockLocations.removeIf { location ->
-                            location.epochMilliseconds != mockLocations.maxOf { l ->
-                                l.epochMilliseconds
+                    ShowTrackedDevicesScreen(
+                        devices = savedDevices.values.toList(),
+                        onSelectLocation = { deviceId ->
+                            currentScreen = IScreen
+                                .SingleDeviceLocations(savedDevices[deviceId])
+                        },
+                        onDeleteDevice = { deviceId ->
+                            viewModel.removeDevice(deviceId)
+                        },
+                        onUseLastLocation = {deviceId ->
+                            val device = savedDevices[deviceId]
+                            val location = if (device != null) devicesLastLocations[device] else null
+
+                            currentScreen = IScreen.FindDevice(device, location)
+                        },
+                        onDeleteAllDevices = { viewModel.removeAllDevices() },
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
+
+                is IScreen.SingleDeviceLocations -> {
+                    val device = (currentScreen as IScreen.SingleDeviceLocations).device
+                    val deviceLocations by viewModel
+                        .getLocationsForDevice(device?.deviceId)
+                        .collectAsState( initial = emptyMap())
+
+                    SingleDeviceLocationsScreen(
+                        device = device,
+                        locations = deviceLocations.values.toList(),
+                        onSelectSpecificLocation = {locationId ->
+                            currentScreen = IScreen.FindDevice(device, deviceLocations[locationId])
+                        },
+                        onDeleteLocation = {locationId ->
+                            if (device != null) {
+                                viewModel.removeDeviceLocation(device.deviceId, locationId)
                             }
-                        }
-                    },
-                    modifier = Modifier.padding(innerPadding)
-                )
+                        },
+                        onDeleteAllLocationsButRecent = {
+                            if (device != null) {
+                                viewModel.removeDeviceLocationsButLast(device.deviceId)
+                            }
+                        },
+                        modifier = Modifier.padding(innerPadding)
+                    )
+                }
 
                 IScreen.StoreNearbyDevices -> StoreNearbyDevicesScreen(
                     foundDevices = mockScannedList,
                     isScanning = false,
                     onStartScan = {},
                     onStopScan = {},
-                    onSaveDevice = {
-                        mockSavedDevices.add(
-                            DeviceEntity(
-                                deviceId = (mockSavedDevices.size + 1).toLong(),
-                                name = it.name, macAddress = it.macAddress
-                            )
-                        )
+                    onSaveDevice = { deviceData ->
+                        viewModel.saveDeviceWithMockLocation(deviceData)
                     },
                     modifier = Modifier.padding(innerPadding)
                 )
 
-                IScreen.FindDevice -> {
+                is IScreen.FindDevice -> {
+                    val device = (currentScreen as IScreen.FindDevice).device
+                    val location = (currentScreen as IScreen.FindDevice).location
+
+                    Log.i("MainActivity", "Device name: ${device?.name}, location timestamp: ${location?.timestamp}")
+
                     // TODO: replace this with actual screen with Google Maps, compass and proximity alarm
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Image(

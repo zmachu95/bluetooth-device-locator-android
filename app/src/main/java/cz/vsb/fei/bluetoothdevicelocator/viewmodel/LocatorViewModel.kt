@@ -1,0 +1,114 @@
+package cz.vsb.fei.bluetoothdevicelocator.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import cz.vsb.fei.bluetoothdevicelocator.data.DeviceData
+import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
+import cz.vsb.fei.bluetoothdevicelocator.data.LocationData
+import cz.vsb.fei.bluetoothdevicelocator.data.LocationEntity
+import cz.vsb.fei.bluetoothdevicelocator.data.LocatorRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlin.time.Clock
+
+/**
+ * ViewModel for Bluetooth device locator.
+ */
+class LocatorViewModel(private val repository: LocatorRepository) : ViewModel() {
+
+    /**
+     * Gets "hot" flow of all devices in the database.
+     */
+    val allDevices: StateFlow<Map<Long, DeviceEntity>> = repository.getAllDevices()
+        .map { devices-> devices.associateBy { device -> device.deviceId } }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyMap()
+        )
+
+    /**
+     * Gets "hot" flow of the last location for all devices in the database.
+     */
+    val devicesLastLocations: StateFlow<Map<DeviceEntity, LocationEntity?>> =
+        repository.getDevicesLastLocation().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyMap()
+        )
+
+    /**
+     * Gets "cold" flow of all locations for a specific device.
+     * @param deviceId Device's ID.
+     * @return Flow of all locations for a specific device.
+     */
+    fun getLocationsForDevice(deviceId: Long?): Flow<Map<Long, LocationEntity>> {
+        return if (deviceId != null) repository.getDeviceLocations(deviceId)
+            .map { locations-> locations.associateBy { location -> location.locationId } } else
+            flowOf(emptyMap())
+    }
+
+    /**
+     * Inserts a device and a mock location into the database.
+     * @param deviceData Data o device to insert.
+     */
+    fun saveDeviceWithMockLocation(deviceData: DeviceData) {
+        viewModelScope.launch {
+            val mockLocation = LocationData(
+                latitude = 49.8306,
+                longitude = 18.1624,
+                accuracy = 5.0,
+                timeStamp = Clock.System.now()
+            )
+            repository.insertDeviceWithLocation(
+                device = deviceData,
+                location = mockLocation
+            )
+        }
+    }
+
+    /**
+     * Removes a device and its locations from the database.
+     * @param deviceId ID of device to remove.
+     */
+    fun removeDevice(deviceId: Long) {
+        viewModelScope.launch {
+            repository.removeDevice(deviceId)
+        }
+    }
+
+    /**
+     * Removes all devices and their locations from the database.
+     */
+    fun removeAllDevices() {
+        viewModelScope.launch {
+            repository.removeAllDevices()
+        }
+    }
+
+    /**
+     * Removes a specific device location from the database.
+     * @param deviceId Device's ID.
+     * @param locationId ID of location to remove.
+     */
+    fun removeDeviceLocation(deviceId: Long, locationId: Long) {
+        viewModelScope.launch {
+            repository.removeDeviceLocation(deviceId, locationId)
+        }
+    }
+
+    /**
+     * Removes all locations except the last one for a specific device.
+     * @param deviceId Device's ID.
+     */
+    fun removeDeviceLocationsButLast(deviceId: Long) {
+        viewModelScope.launch {
+            repository.removeDeviceLocationsButLast(deviceId)
+        }
+    }
+}

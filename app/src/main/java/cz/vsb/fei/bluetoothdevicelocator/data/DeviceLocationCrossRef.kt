@@ -10,9 +10,9 @@ import androidx.room3.Index
 @Entity(primaryKeys = ["deviceId", "locationId"],
     indices = [Index(value = ["deviceId", "locationId"])],
     foreignKeys = [ForeignKey(entity = DeviceEntity::class, parentColumns = ["deviceId"],
-        childColumns = ["deviceId"], onDelete = ForeignKey.CASCADE),
+        childColumns = ["deviceId"], onDelete = ForeignKey.RESTRICT),
     ForeignKey(entity = LocationEntity::class, parentColumns = ["locationId"],
-        childColumns = ["locationId"], onDelete = ForeignKey.CASCADE)])
+        childColumns = ["locationId"], onDelete = ForeignKey.RESTRICT)])
 data class DeviceLocationCrossRef(
 
     /**

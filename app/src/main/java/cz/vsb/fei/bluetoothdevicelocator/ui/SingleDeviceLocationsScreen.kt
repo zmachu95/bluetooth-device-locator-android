@@ -57,9 +57,9 @@ private fun Instant.toFormattedString(): String {
 fun SingleDeviceLocationsScreen(
     device: DeviceEntity?,
     locations: List<LocationEntity>,
-    onSelectSpecificLocation: (deviceId: Long, locationId: Long) -> Unit,
+    onSelectSpecificLocation: (locationId: Long) -> Unit,
     onDeleteLocation: (locationId: Long) -> Unit,
-    onDeleteAllLocationsButRecent: (deviceId: Long) -> Unit,
+    onDeleteAllLocationsButRecent: () -> Unit,
     modifier: Modifier = Modifier
 ) {
 
@@ -91,7 +91,7 @@ fun SingleDeviceLocationsScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            onDeleteAllLocationsButRecent(device.deviceId)
+                            onDeleteAllLocationsButRecent()
                             showDeleteDialog = false
                         },
                         colors = ButtonDefaults.textButtonColors(
@@ -224,7 +224,7 @@ fun SingleDeviceLocationsScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onSelectSpecificLocation(device.deviceId, location.locationId) }
+                            .clickable { onSelectSpecificLocation(location.locationId) }
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -310,7 +310,7 @@ fun SingleDeviceLocationsPreview() {
         SingleDeviceLocationsScreen(
             device = mockDevice,
             locations = mockLocationSingle,
-            onSelectSpecificLocation = {deviceId, locationId -> },
+            onSelectSpecificLocation = {locationId -> },
             onDeleteLocation = {},
             onDeleteAllLocationsButRecent = {}
         )

@@ -5,6 +5,7 @@ import androidx.room3.Delete
 import androidx.room3.Insert
 import androidx.room3.OnConflictStrategy
 import androidx.room3.Query
+import kotlinx.coroutines.flow.Flow
 import kotlin.time.Instant
 
 /**
@@ -30,6 +31,23 @@ interface LocationDao {
     suspend fun removeLocation(location: LocationEntity): Int
 
     /**
+     * Deletes all orphaned locations from the database, i.e. locations without a device.
+     * @return Number of deleted orphaned locations.
+     */
+    @Query("DELETE FROM LocationEntity " +
+            "WHERE LocationEntity.locationId NOT IN ( " +
+            "    SELECT DeviceLocationCrossRef.locationId FROM DeviceLocationCrossRef " +
+            ")")
+    suspend fun removeOrphanedLocations() : Int
+
+    /**
+     * Deletes all locations from the database.
+     * @return Number of deleted locations.
+     */
+    @Query("DELETE FROM LocationEntity")
+    suspend fun removeAll() : Int
+
+    /**
      * Tries to get location by its timestamp.
      * @param millisecondsFromEpoch Timestamp represented as number of milliseconds from epoch.
      * @return Location with given timestamp if found, otherwise returns null.
@@ -43,9 +61,10 @@ interface LocationDao {
      * @param millisecondsFromEpochEnd End timestamp represented as number of milliseconds from epoch.
      * @return List of locations between two timestamps.
      */
-    @Query("SELECT * FROM LocationEntity WHERE epochMilliseconds BETWEEN :start AND :end")
-    suspend fun getLocationsBetweenTwoTimestamps(millisecondsFromEpochStart: Long,
-                                                 millisecondsFromEpochEnd: Long): List<LocationEntity>
+    @Query("SELECT * FROM LocationEntity " +
+            "WHERE epochMilliseconds BETWEEN :millisecondsFromEpochStart AND :millisecondsFromEpochEnd")
+    fun getLocationsBetweenTwoTimestamps(millisecondsFromEpochStart: Long,
+                                                 millisecondsFromEpochEnd: Long): Flow<List<LocationEntity>>
 
     /**
      * Gets all locations between two timestamps.
@@ -53,7 +72,7 @@ interface LocationDao {
      * @param end End timestamp.
      * @return List of locations between two timestamps.
      */
-    suspend fun getLocationsBetweenTwoTimestamps(start: Instant, end: Instant): List<LocationEntity> {
+    fun getLocationsBetweenTwoTimestamps(start: Instant, end: Instant): Flow<List<LocationEntity>> {
         return getLocationsBetweenTwoTimestamps(start.toEpochMilliseconds(),
             end.toEpochMilliseconds())
     }
