@@ -7,6 +7,7 @@ import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
 import cz.vsb.fei.bluetoothdevicelocator.data.LocationData
 import cz.vsb.fei.bluetoothdevicelocator.data.LocationEntity
 import cz.vsb.fei.bluetoothdevicelocator.data.LocatorRepository
+import cz.vsb.fei.bluetoothdevicelocator.hardware.BluetoothGateway
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -14,12 +15,16 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.lang.AutoCloseable
 import kotlin.time.Clock
 
 /**
  * ViewModel for Bluetooth device locator.
  */
-class LocatorViewModel(private val repository: LocatorRepository) : ViewModel() {
+class LocatorViewModel(
+    private val repository: LocatorRepository,
+    private val bluetoothGateway: BluetoothGateway
+) : ViewModel() {
 
     /**
      * Gets "hot" flow of all devices in the database.
@@ -41,6 +46,50 @@ class LocatorViewModel(private val repository: LocatorRepository) : ViewModel() 
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyMap()
         )
+
+    /**
+     * Gets "hot" flow of nearby active devices.
+     */
+    val nearbyDevices: StateFlow<List<DeviceData>> = bluetoothGateway.foundDevices
+        .map { devices-> devices.values.sortedWith(this::nearbyDevicesComparator).toList() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    /**
+     * Gets "hot" flow of Bluetooth scanning status.
+     */
+    val isBluetoothScanning: StateFlow<Boolean> = bluetoothGateway.isScanning
+
+    /**
+     * Starts Bluetooth scanning.
+     */
+    fun startBluetoothScan() {
+        bluetoothGateway.startScan()
+    }
+
+    /**
+     * Stops Bluetooth scanning.
+     */
+    fun stopBluetoothScan() {
+        bluetoothGateway.stopScan()
+    }
+
+    /**
+     * Performs hardware check whether Bluetooth is enabled.
+     */
+    fun isBluetoothEnabled(): Boolean {
+        return bluetoothGateway.isBluetoothEnabled()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+
+        // stop Bluetooth scanning
+        bluetoothGateway.stopScan()
+    }
 
     /**
      * Gets "cold" flow of all locations for a specific device.
@@ -110,5 +159,15 @@ class LocatorViewModel(private val repository: LocatorRepository) : ViewModel() 
         viewModelScope.launch {
             repository.removeDeviceLocationsButLast(deviceId)
         }
+    }
+
+    /**
+     * Compares two devices based on their RSSI and name.
+     * @param first First device to compare.
+     * @param second Second device to compare.
+     */
+    private fun nearbyDevicesComparator(first: DeviceData, second: DeviceData): Int {
+        return if (first.rssi != second.rssi)
+            second.rssi.compareTo(first.rssi) else first.name.compareTo(second.name)
     }
 }
