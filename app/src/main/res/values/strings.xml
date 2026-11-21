@@ -41,5 +41,8 @@
     <string name="stop_scan_button_caption">Stop Scan</string>
     <string name="enable_bluetooth_prompt">Swipe down from the top and enable Bluetooth in Quick Settings.</string>
     <string name="no_bluetooth_search_without_permissions">Cannot search for nearby devices without Bluetooth permissions!</string>
-
+    <string name="device_saved">Device saved!</string>
+    <string name="device_location_unavailable">Could not get location. Check Location Services settings.</string>
+    <string name="enable_location_services_prompt">Swipe down from the top and enable Location Services in Settings.</string>
+    <string name="enable_bluetooth_and_location_services_prompt">Enable Bluetooth and Location Services in Quick Settings.</string>
 </resources>

@@ -42,4 +42,8 @@
     <string name="stop_scan_button_caption">Ukončit hledání</string>
     <string name="enable_bluetooth_prompt">Potáhněte prstem seshora dolů a v nabídce zapněte Bluetooth.</string>
     <string name="no_bluetooth_search_without_permissions">Bez Bluetooth oprávnění nelze vyhledat okolní zařízení!</string>
+    <string name="device_saved">Zařízení uloženo!</string>
+    <string name="device_location_unavailable">Nelze získat polohu. Zkontrolujte nastavení služeb polohy.</string>
+    <string name="enable_location_services_prompt">Potáhněte prstem seshora dolů a v nabídce zapněte Určování polohy.</string>
+    <string name="enable_bluetooth_and_location_services_prompt">Prosím zapněte v nastavení Bluetooth a Služby určování polohy.</string>
 </resources>
