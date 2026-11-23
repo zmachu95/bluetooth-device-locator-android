@@ -32,6 +32,7 @@ sealed interface IScreen {
          * Device to show locations for.
          */
         val device: DeviceEntity?
+
     ) : IScreen
 
     /**
@@ -48,5 +49,11 @@ sealed interface IScreen {
          * Device's saved location.
          */
         val location: LocationEntity?,
+
+        /**
+         * RSSI value for the device and the location.
+         */
+        val deviceLocationRssi: Float?,
+
     ) : IScreen
 }

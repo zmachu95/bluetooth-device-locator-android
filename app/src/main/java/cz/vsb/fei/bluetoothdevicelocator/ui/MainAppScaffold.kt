@@ -1,10 +1,6 @@
 package cz.vsb.fei.bluetoothdevicelocator.ui
 
-import android.util.Log
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -18,14 +14,13 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import cz.vsb.fei.bluetoothdevicelocator.R
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceData
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
+import cz.vsb.fei.bluetoothdevicelocator.data.LocationData
 import cz.vsb.fei.bluetoothdevicelocator.data.LocationEntity
 import cz.vsb.fei.bluetoothdevicelocator.viewmodel.LocatorViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +35,7 @@ import kotlin.time.Clock
  * @param onStartBluetoothScan Callback used when starting a Bluetooth scan.
  * @param onDeviceStoredSuccessfully Callback used when a device is successfully stored.
  * @param onLocationUnavailable Callback used when device's location is unavailable.
+ * @param initializeFindDeviceScreen Callback used to initialize FindDevice screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,7 +43,8 @@ fun MainAppScaffold(
     viewModel: LocatorViewModel,
     onStartBluetoothScan: () -> Unit,
     onDeviceStoredSuccessfully: () -> Unit,
-    onLocationUnavailable: () -> Unit
+    onLocationUnavailable: () -> Unit,
+    initializeFindDeviceScreen: (DeviceEntity?, LocationEntity?, Float?) -> Unit
 ) {
 
     /**
@@ -56,19 +53,24 @@ fun MainAppScaffold(
     val savedDevices by viewModel.allDevices.collectAsState()
 
     /**
-     * List of active nearby devices as a state.
+     * List of active nearby devices from a single scan as a state.
      */
-    val nearbyDevices by viewModel.nearbyDevices.collectAsState()
+    val nearbyDevicesSingleScan by viewModel.nearbyDevicesSingleScan.collectAsState()
 
     /**
      * Flag whether Bluetooth scanning is now in progress as a state.
      */
-    val isBluetoothScanning by viewModel.isBluetoothScanning.collectAsState()
+    val isBluetoothScanning by viewModel.isBluetoothPerformingSingleScan.collectAsState()
 
     /**
      * Current screen to render.
      */
     val currentScreen by viewModel.currentScreen.collectAsState()
+
+    /**
+     * RSSI values mapped to device-location pairs as a state.
+     */
+    val devicesLocationsSignalData by viewModel.devicesLocationsSignalData.collectAsState()
 
     BackHandler(
         enabled = currentScreen != IScreen.Menu,
@@ -146,8 +148,12 @@ fun MainAppScaffold(
                     onUseLastLocation = { deviceId ->
                         val device = savedDevices[deviceId]
                         val location = if (device != null) devicesLastLocations[device] else null
+                        val deviceLocationPair = Pair(
+                            device?.deviceId ?: -1, location?.locationId ?: -1
+                        )
+                        val deviceLocationRssi = devicesLocationsSignalData[deviceLocationPair]
 
-                        viewModel.changeCurrentScreen(IScreen.FindDevice(device, location))
+                        initializeFindDeviceScreen(device,location, deviceLocationRssi)
                     },
                     onDeleteAllDevices = { viewModel.removeAllDevices() },
                     modifier = Modifier.padding(innerPadding)
@@ -164,9 +170,11 @@ fun MainAppScaffold(
                     device = device,
                     locations = deviceLocations.values.toList(),
                     onSelectSpecificLocation = { locationId ->
-                        viewModel.changeCurrentScreen(
-                            IScreen.FindDevice(device, deviceLocations[locationId])
-                        )
+                        val location = deviceLocations[locationId]
+                        val deviceLocationPair = Pair(device?.deviceId ?: -1, locationId)
+                        val deviceLocationRssi = devicesLocationsSignalData[deviceLocationPair]
+
+                        initializeFindDeviceScreen(device, location, deviceLocationRssi)
                     },
                     onDeleteLocation = { locationId ->
                         if (device != null) {
@@ -184,7 +192,7 @@ fun MainAppScaffold(
 
             IScreen.StoreNearbyDevices -> {
                 StoreNearbyDevicesScreen(
-                    foundDevices = nearbyDevices,
+                    foundDevices = nearbyDevicesSingleScan,
                     isScanning = isBluetoothScanning,
                     onStartScan = onStartBluetoothScan,
                     onStopScan = viewModel::stopBluetoothScan,
@@ -200,22 +208,26 @@ fun MainAppScaffold(
             }
 
             is IScreen.FindDevice -> {
+                val nearbyDevicesContinuousScan by viewModel.nearbyDevicesContinuousScan
+                    .collectAsState()
+
+                val azimuthAngle by viewModel.azimuthAngle.collectAsState()
                 val device = (currentScreen as IScreen.FindDevice).device
                 val location = (currentScreen as IScreen.FindDevice).location
+                val deviceLocationRssi = (currentScreen as IScreen.FindDevice).deviceLocationRssi
+                    ?: 0f
+                val currentLocation by viewModel.currentLocation.collectAsState()
+                val currentDeviceRssi = nearbyDevicesContinuousScan[device?.macAddress]?.rssi
 
-                Log.i(
-                    "MainAppScaffold",
-                    "Device name: ${device?.name}, location timestamp: ${location?.timestamp}"
+                FindDeviceScreen(
+                    device = device,
+                    deviceLocation = location,
+                    deviceLocationRssi = deviceLocationRssi,
+                    currentLocation = currentLocation,
+                    currentRssi = currentDeviceRssi,
+                    azimuthDegrees = azimuthAngle,
+                    modifier = Modifier.padding(innerPadding)
                 )
-
-                // TODO: replace this with actual screen with Google Maps, compass and proximity alarm
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Image(
-                        painter = painterResource(R.drawable.find_device_mockup),
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
             }
 
             else -> {}
@@ -244,13 +256,20 @@ fun MainAppScaffoldPreview() {
         var _currentScreen = MutableStateFlow<IScreen>(IScreen.Menu)
 
         override val allDevices = MutableStateFlow(devices.associateBy { it.deviceId }.toMap())
+        override val azimuthAngle = MutableStateFlow(0f)
+        override var cachedFindDeviceScreen: IScreen.FindDevice = IScreen.FindDevice(null, null, null)
+        override val currentLocation = MutableStateFlow(LocationData(49.8306, 18.1624, 21.5, Clock.System.now()))
         override val currentScreen = _currentScreen
         override val devicesLastLocations = MutableStateFlow(devices.associateWith { locations.first() })
-        override val isBluetoothScanning = MutableStateFlow(false)
-        override val nearbyDevices = MutableStateFlow(devices.map { DeviceData(it.name, it.macAddress,
+        override val devicesLocationsSignalData = MutableStateFlow<Map<Pair<Long, Long>, Float>>(emptyMap())
+        override val isBluetoothPerformingSingleScan = MutableStateFlow(false)
+        override val nearbyDevicesSingleScan = MutableStateFlow(devices.map { DeviceData(it.name, it.macAddress,
             Random.nextDouble(-100.0, -20.0).toFloat()) }.toList())
+        override val nearbyDevicesContinuousScan = MutableStateFlow<Map<String, DeviceData>>(emptyMap())
         override fun areLocationServicesEnabled(): Boolean = true
-        override fun startBluetoothScan() {}
+        override fun startBluetoothScan(isContinuous: Boolean) {}
+        override fun startCompassUpdates() {}
+        override fun startLocationUpdates() {}
         override fun stopBluetoothScan() {}
         override fun isBluetoothEnabled(): Boolean = true
         override fun changeCurrentScreen(screen: IScreen) {_currentScreen.update { screen }}
@@ -284,7 +303,8 @@ fun MainAppScaffoldPreview() {
             mockViewModel,
             {},
             {},
-            {}
+            {},
+            {_, _, _ -> }
         )
     }
 }

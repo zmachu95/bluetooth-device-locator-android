@@ -3,6 +3,7 @@ package cz.vsb.fei.bluetoothdevicelocator.viewmodel
 import androidx.lifecycle.ViewModel
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceData
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
+import cz.vsb.fei.bluetoothdevicelocator.data.LocationData
 import cz.vsb.fei.bluetoothdevicelocator.data.LocationEntity
 import cz.vsb.fei.bluetoothdevicelocator.ui.IScreen
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,21 @@ abstract class LocatorViewModel : ViewModel() {
     abstract val allDevices: StateFlow<Map<Long, DeviceEntity>>
 
     /**
+     * Gets "hot" flow of the current azimuth angle in degrees.
+     */
+    abstract val azimuthAngle: StateFlow<Float>
+
+    /**
+     * Caches FindDevice screen.
+     */
+    abstract var cachedFindDeviceScreen : IScreen.FindDevice
+
+    /**
+     * Gets "hot" flow with the current location.
+     */
+    abstract val currentLocation: StateFlow<LocationData?>
+
+    /**
      * Gets "hot" flow with current screen.
      */
     abstract val currentScreen: StateFlow<IScreen>
@@ -29,14 +45,24 @@ abstract class LocatorViewModel : ViewModel() {
     abstract val devicesLastLocations: StateFlow<Map<DeviceEntity, LocationEntity?>>
 
     /**
-     * Gets "hot" flow of Bluetooth scanning status.
+     * Gets "hot" flow of RSSI values mapped to device-location pairs.
      */
-    abstract val isBluetoothScanning: StateFlow<Boolean>
+    abstract val devicesLocationsSignalData : StateFlow<Map<Pair<Long, Long>, Float>>
 
     /**
-     * Gets "hot" flow of nearby active devices.
+     * Gets "hot" flow whether Bluetooth is performing a single scan.
      */
-    abstract val nearbyDevices: StateFlow<List<DeviceData>>
+    abstract val isBluetoothPerformingSingleScan: StateFlow<Boolean>
+
+    /**
+     * Gets "hot" flow of nearby active devices from a single Bluetooth scan.
+     */
+    abstract val nearbyDevicesSingleScan: StateFlow<List<DeviceData>>
+
+    /**
+     * Gets "hot" flow of nearby active devices from a continuous Bluetooth scan.
+     */
+    abstract val nearbyDevicesContinuousScan: StateFlow<Map<String, DeviceData>>
 
     /**
      * Performs hardware check whether location services are enabled.
@@ -104,8 +130,20 @@ abstract class LocatorViewModel : ViewModel() {
 
     /**
      * Starts Bluetooth scanning.
+     * @param isContinuous Supply true to perform a continuous scan;
+     * supply false to perform a single scan only.
      */
-    abstract fun startBluetoothScan()
+    abstract fun startBluetoothScan(isContinuous: Boolean)
+
+    /**
+     * Starts reading compass updates.
+     */
+    abstract fun startCompassUpdates()
+
+    /**
+     * Starts reading location updates.
+     */
+    abstract fun startLocationUpdates()
 
     /**
      * Stops Bluetooth scanning.

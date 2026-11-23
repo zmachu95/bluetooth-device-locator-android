@@ -33,9 +33,19 @@ class BluetoothClassicReceiver(
     private val hasBluetoothConnectPermission: () -> Boolean,
 
     /**
-     * Callback to invoke upon scan stop.
+     * Callback which is called when discovery is finished.
      */
-    private val onScanStopped: () -> Unit,
+    private val onDiscoveryFinished: () -> Unit,
+
+    /**
+     * Callback which is called when Bluetooth is turned off.
+     */
+    private val onTurnedOff: () -> Unit,
+
+    /**
+     * Callback which is called when Bluetooth is turned on.
+     */
+    private val onTurnedOn: () -> Unit,
 
     private val context: Context
 
@@ -44,13 +54,15 @@ class BluetoothClassicReceiver(
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             BluetoothDevice.ACTION_FOUND -> storeDevice(intent)
-            BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> onScanStopped()
+            BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> onDiscoveryFinished()
             BluetoothAdapter.ACTION_STATE_CHANGED -> {
                 val state = intent.getIntExtra(
                     BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
                 if (state == BluetoothAdapter.STATE_OFF
                     || state == BluetoothAdapter.STATE_TURNING_OFF) {
-                    onScanStopped()
+                    onTurnedOff()
+                } else if (state == BluetoothAdapter.STATE_ON) {
+                    onTurnedOn()
                 }
             }
         }

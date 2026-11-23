@@ -79,4 +79,12 @@ class LocatorRepository(context: Context) {
         return db.deviceDao().getDeviceLocationsFlow(deviceId)
     }
 
+    /**
+     * Gets signal data for all devices and their locations.
+     * @return Flow with list of signal data for all devices and their locations.
+     */
+    fun getDevicesLocationsSignalData(): Flow<List<DeviceLocationCrossRef>> {
+        return db.deviceLocationCrossRefDao().getCrossRefData()
+    }
+
 }

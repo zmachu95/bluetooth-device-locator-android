@@ -8,12 +8,15 @@ import cz.vsb.fei.bluetoothdevicelocator.data.LocationData
 import cz.vsb.fei.bluetoothdevicelocator.data.LocationEntity
 import cz.vsb.fei.bluetoothdevicelocator.data.LocatorRepository
 import cz.vsb.fei.bluetoothdevicelocator.hardware.BluetoothGateway
+import cz.vsb.fei.bluetoothdevicelocator.hardware.BluetoothScanState
+import cz.vsb.fei.bluetoothdevicelocator.hardware.CompassGateway
 import cz.vsb.fei.bluetoothdevicelocator.hardware.LocationGateway
 import cz.vsb.fei.bluetoothdevicelocator.ui.IScreen
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -26,9 +29,13 @@ import kotlinx.coroutines.launch
 class LocatorViewModelImpl(
     private val repository: LocatorRepository,
     private val bluetoothGateway: BluetoothGateway,
-    private val locationGateway: LocationGateway
+    private val locationGateway: LocationGateway,
+    private val compassGateway: CompassGateway
 ) : LocatorViewModel() {
 
+    /**
+     * Backing field for currentScreen property.
+     */
     private var _currentScreen = MutableStateFlow<IScreen>(IScreen.Menu)
 
     override val allDevices: StateFlow<Map<Long, DeviceEntity>> = repository.getAllDevices()
@@ -39,7 +46,26 @@ class LocatorViewModelImpl(
             initialValue = emptyMap()
         )
 
-    override val currentScreen: StateFlow<IScreen> = _currentScreen
+    override val azimuthAngle: StateFlow<Float> = compassGateway.azimuth.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = 0f
+    )
+
+    override var cachedFindDeviceScreen : IScreen.FindDevice =
+        IScreen.FindDevice(null, null, null)
+
+    override val currentLocation: StateFlow<LocationData?> = locationGateway.currentLocation.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = null
+    )
+
+    override val currentScreen: StateFlow<IScreen> = _currentScreen.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = IScreen.Menu
+    )
 
     override val devicesLastLocations: StateFlow<Map<DeviceEntity, LocationEntity?>> =
         repository.getDevicesLastLocation().stateIn(
@@ -48,29 +74,74 @@ class LocatorViewModelImpl(
             initialValue = emptyMap()
         )
 
-    override val nearbyDevices: StateFlow<List<DeviceData>> = bluetoothGateway.foundDevices
-        .map { devices-> devices.values.sortedWith(this::nearbyDevicesComparator).toList() }
-        .stateIn(
+    override val devicesLocationsSignalData : StateFlow<Map<Pair<Long, Long>, Float>> =
+        repository.getDevicesLocationsSignalData().map {crossrefs ->
+            crossrefs.associate { crossref ->
+                Pair(
+                    crossref.deviceId,
+                    crossref.locationId
+                ) to crossref.rssi
+            }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyMap()
+        )
+
+    override val isBluetoothPerformingSingleScan: StateFlow<Boolean> = bluetoothGateway.scanState
+        .map { state -> state == BluetoothScanState.SINGLE_SCAN }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
+    override val nearbyDevicesSingleScan: StateFlow<List<DeviceData>> =
+        combine(
+            flow = bluetoothGateway.foundDevices,
+            flow2 = bluetoothGateway.scanState
+        ) { devices, state ->
+            if (state == BluetoothScanState.CONTINUOUS_SCAN) {
+                emptyList()
+            } else {
+                devices.values.sortedWith(this::nearbyDevicesComparator)
+            }
+        }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
 
-    override fun isBluetoothEnabled(): Boolean {
-        return bluetoothGateway.isBluetoothEnabled()
-    }
+    override val nearbyDevicesContinuousScan: StateFlow<Map<String, DeviceData>> =
+        combine(
+            flow = bluetoothGateway.foundDevices,
+            flow2 = bluetoothGateway.scanState
+        ) { devices, state ->
+            if (state == BluetoothScanState.CONTINUOUS_SCAN) {
+                devices
+            } else {
+                emptyMap()
+            }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyMap()
+        )
 
-    override val isBluetoothScanning: StateFlow<Boolean> = bluetoothGateway.isScanning
-
-    override fun areLocationServicesEnabled(): Boolean = locationGateway.areLocationServicesEnabled()
+    override fun areLocationServicesEnabled(): Boolean =
+        locationGateway.areLocationServicesEnabled()
 
     override fun changeCurrentScreen(screen: IScreen)  {
         val currentScreen = _currentScreen.value
 
         // stop hardware services when leaving specific pages
-        if (currentScreen != screen && currentScreen == IScreen.StoreNearbyDevices) {
-            /* stop Bluetooth scanning when leaving StoreNearbyDevices screen */
-            stopBluetoothScan()
+        if (currentScreen != screen) {
+            if (currentScreen is IScreen.FindDevice) {
+                compassGateway.stopCompassUpdates()
+                locationGateway.stopLocationUpdates()
+                stopBluetoothScan()
+            } else if (currentScreen == IScreen.StoreNearbyDevices) {
+                stopBluetoothScan()
+            }
         }
 
         _currentScreen.update { screen }
@@ -82,22 +153,16 @@ class LocatorViewModelImpl(
             flowOf(emptyMap())
     }
 
+    override fun isBluetoothEnabled(): Boolean {
+        return bluetoothGateway.isBluetoothEnabled()
+    }
+
     override fun navigateBack() {
         when (_currentScreen.value) {
-            IScreen.StoreNearbyDevices -> {
-                stopBluetoothScan()
-                _currentScreen.value = IScreen.Menu
-            }
-            IScreen.ShowTrackedDevices -> {
-                _currentScreen.value = IScreen.Menu
-            }
-            is IScreen.SingleDeviceLocations, is IScreen.FindDevice -> {
-                if (_currentScreen.value is IScreen.FindDevice) {
-                    locationGateway.stopLocationUpdates()
-                }
-
-                _currentScreen.value = IScreen.ShowTrackedDevices
-            }
+            IScreen.StoreNearbyDevices, IScreen.ShowTrackedDevices ->
+                changeCurrentScreen(IScreen.Menu)
+            is IScreen.SingleDeviceLocations, is IScreen.FindDevice ->
+                changeCurrentScreen(IScreen.ShowTrackedDevices)
             else -> {}
         }
     }
@@ -105,9 +170,10 @@ class LocatorViewModelImpl(
     override fun onCleared() {
         super.onCleared()
 
-        // stop Bluetooth scanning and location updates
+        // stop Bluetooth scanning, compass and location updates
         bluetoothGateway.stopScan()
         locationGateway.stopLocationUpdates()
+        compassGateway.stopCompassUpdates()
     }
 
     override fun removeAllDevices() {
@@ -157,8 +223,16 @@ class LocatorViewModelImpl(
         }
     }
 
-    override fun startBluetoothScan() {
-        bluetoothGateway.startScan()
+    override fun startBluetoothScan(isContinuous: Boolean) {
+        bluetoothGateway.startScan(isContinuous)
+    }
+
+    override fun startCompassUpdates() {
+        compassGateway.startCompassUpdates()
+    }
+
+    override  fun startLocationUpdates() {
+        locationGateway.startLocationUpdates()
     }
 
     override fun stopBluetoothScan() {

@@ -9,6 +9,7 @@ import android.bluetooth.le.ScanSettings.SCAN_MODE_LOW_LATENCY
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.content.ContextCompat
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceData
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,9 +45,9 @@ class BluetoothGateway(private val context: Context) {
     private val _foundDevices = MutableStateFlow<Map<String, DeviceData>>(emptyMap())
 
     /**
-     * Backing field for isScanning property.
+     * Backing field for scanState property.
      */
-    private val _isScanning = MutableStateFlow<Boolean>(false)
+    private val _scanState = MutableStateFlow(BluetoothScanState.NOT_ACTIVE)
 
     /**
      * Running device's Bluetooth manager.
@@ -65,7 +66,9 @@ class BluetoothGateway(private val context: Context) {
     private val bluetoothClassicReceiver = BluetoothClassicReceiver(
         devicesFlow = _foundDevices,
         hasBluetoothConnectPermission = this::hasBluetoothConnectPermission,
-        onScanStopped = this::stopScan,
+        onDiscoveryFinished = this::onDiscoveryFinished,
+        onTurnedOff = this::onBluetoothTurnedOff,
+        onTurnedOn = this::onBluetoothTurnedOn,
         context = context
     )
 
@@ -76,7 +79,10 @@ class BluetoothGateway(private val context: Context) {
         BluetoothLeScanCallback(
             devicesFlow =  _foundDevices,
             hasBluetoothConnectPermission = this::hasBluetoothConnectPermission,
-            onScanStopped = this::stopScan,
+            onScanStopped = {
+                Log.e(BluetoothGateway::class.simpleName, "LE scan failed!")
+                stopScan()
+            },
             context = context
         )
 
@@ -91,9 +97,9 @@ class BluetoothGateway(private val context: Context) {
     private var isClassicReceiverRegistered: Boolean = false
 
     /**
-     * Flag whether Bluetooth scanning is currently in progress.
+     * "Hot" flow with Bluetooth scanning state.
      */
-    val isScanning: StateFlow<Boolean> = _isScanning
+    val scanState: StateFlow<BluetoothScanState> = _scanState
 
     /**
      * Checks whether Bluetooth is enabled.
@@ -104,43 +110,31 @@ class BluetoothGateway(private val context: Context) {
     /**
      * Starts Bluetooth scanning for nearby devices.
      */
-    @SuppressLint("MissingPermission")
-    fun startScan() {
-        if (_isScanning.value || !isBluetoothEnabled() || !hasBluetoothScanPermission()) return
-        val bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner ?: return
+    fun startScan(isContinuous: Boolean) {
+        if (_scanState.value.isActive || !hasBluetoothScanPermission()) return
+        if (!isContinuous && !isBluetoothEnabled()) return
 
-        // erase previously found devices
         _foundDevices.update { emptyMap() }
-        _isScanning.update { true }
-
-        // start classic Bluetooth scanning
-        if (isClassicReceiverRegistered) unregisterBluetoothClassicReceiver()
-        registerBluetoothClassicReceiver()
-        bluetoothAdapter.startDiscovery()
-
-        // start Bluetooth LE scanning
-        val scanSettings: ScanSettings = ScanSettings.Builder()
-            .setScanMode(SCAN_MODE_LOW_LATENCY).build()
-        bluetoothLeScanner.startScan(null, scanSettings, bluetoothLeScannerCallback)
+        _scanState.update { if (isContinuous)
+            BluetoothScanState.CONTINUOUS_SCAN else BluetoothScanState.SINGLE_SCAN }
+        startBluetoothClassicScanning(true)
+        startBluetoothLeScanning()
     }
 
     /**
      * Stops Bluetooth scanning.
      */
-    @SuppressLint("MissingPermission")
     fun stopScan() {
-        if (hasBluetoothScanPermission() && bluetoothAdapter != null) {
-            // cancel classic Bluetooth scanning
-            if (bluetoothAdapter.isDiscovering) {
-                bluetoothAdapter.cancelDiscovery()
-            }
-
-            // cancel Bluetooth LE scanning
-            bluetoothAdapter.bluetoothLeScanner?.stopScan(bluetoothLeScannerCallback)
-        }
-
+        stopBluetoothClassicScanning(true)
+        stopBluetoothLeScanning()
         unregisterBluetoothClassicReceiver()
-        _isScanning.update { false }
+
+        if (_scanState.value == BluetoothScanState.CONTINUOUS_SCAN) {
+            /* clean the devices list if using continuous scanning to prevent showing
+               the devices in Nearby Devices screen */
+            _foundDevices.update { emptyMap() }
+        }
+        _scanState.update { BluetoothScanState.NOT_ACTIVE }
     }
 
     /**
@@ -149,9 +143,11 @@ class BluetoothGateway(private val context: Context) {
      */
     fun hasBluetoothConnectPermission() : Boolean {
         return if (hasDeviceAtleastAndroid12()) {
-            context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+            context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) ==
+                    PackageManager.PERMISSION_GRANTED
         } else {
-            context.checkSelfPermission(Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED
+            context.checkSelfPermission(Manifest.permission.BLUETOOTH) ==
+                    PackageManager.PERMISSION_GRANTED
         }
     }
 
@@ -161,9 +157,48 @@ class BluetoothGateway(private val context: Context) {
      */
     fun hasBluetoothScanPermission() : Boolean {
         return if (hasDeviceAtleastAndroid12()) {
-            context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+            context.checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) ==
+                    PackageManager.PERMISSION_GRANTED
         } else {
-            context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
+                    PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    /**
+     * Callback called when classic Bluetooth discovery finishes.
+     */
+    private fun onDiscoveryFinished() {
+        if (_scanState.value == BluetoothScanState.CONTINUOUS_SCAN) {
+            /* clear the map to ensure no far-away or disabled devices are present there */
+            _foundDevices.update { emptyMap() }
+            startBluetoothClassicScanning(false)
+        } else {
+            stopScan()
+        }
+    }
+
+    /**
+     * Callback called when Bluetooth is turned off.
+     */
+    private fun onBluetoothTurnedOff() {
+        if (_scanState.value == BluetoothScanState.CONTINUOUS_SCAN) {
+            /* clear the map to ensure no wrong data is present */
+            _foundDevices.update { emptyMap() }
+            stopBluetoothClassicScanning(false)
+            stopBluetoothLeScanning()
+        } else {
+            stopScan()
+        }
+    }
+
+    /**
+     * Callback called when Bluetooth is turned on.
+     */
+    private fun onBluetoothTurnedOn() {
+        if (_scanState.value == BluetoothScanState.CONTINUOUS_SCAN) {
+            startBluetoothClassicScanning(false)
+            startBluetoothLeScanning()
         }
     }
 
@@ -172,6 +207,9 @@ class BluetoothGateway(private val context: Context) {
      */
     private fun registerBluetoothClassicReceiver() {
         if (!isClassicReceiverRegistered) {
+            Log.i(
+                BluetoothGateway::class.simpleName,
+                "Registered Bluetooth classic receiver.")
             val filter = android.content.IntentFilter().apply {
                 addAction(android.bluetooth.BluetoothDevice.ACTION_FOUND)
                 addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
@@ -188,10 +226,102 @@ class BluetoothGateway(private val context: Context) {
     }
 
     /**
+     * Starts classic Bluetooth scanning.
+     * @param registerReceiver Flag whether to register the receiver object.
+     */
+    @SuppressLint("MissingPermission")
+    private fun startBluetoothClassicScanning(registerReceiver: Boolean) {
+        if (bluetoothAdapter == null || !hasBluetoothScanPermission()) return
+
+        if (registerReceiver) {
+            unregisterBluetoothClassicReceiver()
+            registerBluetoothClassicReceiver()
+        }
+        if (isBluetoothEnabled()) {
+            try {
+                bluetoothAdapter.startDiscovery()
+                Log.i(
+                    BluetoothGateway::class.simpleName,
+                    "Started Bluetooth classic scan...")
+            } catch (_: Exception) {
+                Log.e(
+                    BluetoothGateway::class.simpleName,
+                    "Failed to start Bluetooth classic scan!")
+            }
+        }
+    }
+
+    /**
+     * Starts Bluetooth LE scanning.
+     */
+    @SuppressLint("MissingPermission")
+    private fun startBluetoothLeScanning() {
+        if (!isBluetoothEnabled() || !hasBluetoothScanPermission()) return
+        val bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner ?: return
+        val scanSettings: ScanSettings = ScanSettings.Builder()
+            .setScanMode(SCAN_MODE_LOW_LATENCY).build()
+
+        try {
+            bluetoothLeScanner.startScan(null, scanSettings, bluetoothLeScannerCallback)
+            Log.i(
+                BluetoothGateway::class.simpleName,
+                "Started Bluetooth LE scan...")
+        } catch (_: Exception) {
+            Log.e(
+                BluetoothGateway::class.simpleName,
+                "Failed to start Bluetooth LE scan!")
+        }
+    }
+
+    /**
+     * Stops classic Bluetooth scanning.
+     * @param unregisterReceiver Flag whether to unregister the receiver object.
+     */
+    @SuppressLint("MissingPermission")
+    private fun stopBluetoothClassicScanning(unregisterReceiver: Boolean) {
+        if (bluetoothAdapter == null || !hasBluetoothScanPermission()) return
+
+        try {
+            if (unregisterReceiver) unregisterBluetoothClassicReceiver()
+            bluetoothAdapter.cancelDiscovery()
+            Log.i(
+                BluetoothGateway::class.simpleName,
+                "Stopped Bluetooth classic scan...")
+        } catch (_: Exception) {
+            Log.w(
+                BluetoothGateway::class.simpleName,
+                "Failed to stop Bluetooth classic scan!")
+        }
+    }
+
+    /**
+     * Stops Bluetooth LE scanning.
+     */
+    @SuppressLint("MissingPermission")
+    private fun stopBluetoothLeScanning() {
+        if (!hasBluetoothScanPermission()) return
+        val bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner ?: return
+
+        try {
+            bluetoothLeScanner.stopScan(bluetoothLeScannerCallback)
+            Log.i(
+                BluetoothGateway::class.simpleName,
+                "Stopped Bluetooth LE scan...")
+        } catch (_: Exception) {
+            Log.w(
+                BluetoothGateway::class.simpleName,
+                "Failed to stop Bluetooth LE scan!")
+        }
+    }
+
+    /**
      * Unregisters receiver object for classic Bluetooth scanning.
      */
     private fun unregisterBluetoothClassicReceiver() {
         if (isClassicReceiverRegistered) {
+            Log.i(
+                BluetoothGateway::class.simpleName,
+                "Unregistered Bluetooth classic receiver.")
             context.unregisterReceiver(bluetoothClassicReceiver)
             isClassicReceiverRegistered = false
         }

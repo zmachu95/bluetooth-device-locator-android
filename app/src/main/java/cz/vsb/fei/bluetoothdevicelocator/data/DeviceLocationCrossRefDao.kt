@@ -5,6 +5,7 @@ import androidx.room3.Delete
 import androidx.room3.Insert
 import androidx.room3.OnConflictStrategy
 import androidx.room3.Query
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Data Access Object for DeviceLocationCrossRef.
@@ -69,5 +70,12 @@ interface DeviceLocationCrossRefDao {
      */
     @Query("SELECT rssi FROM DeviceLocationCrossRef WHERE deviceId = :deviceId AND locationId = :locationId")
     suspend fun getSignalStrength(deviceId: Long, locationId: Long): Float?
+
+    /**
+     * Gets all cross-references from the database.
+     * @return Flow with list of all cross-references.
+     */
+    @Query("SELECT * FROM DeviceLocationCrossRef")
+    fun getCrossRefData(): Flow<List<DeviceLocationCrossRef>>
 
 }

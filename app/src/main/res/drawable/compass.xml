@@ -1,0 +1,34 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="220dp"
+    android:height="220dp"
+    android:viewportWidth="58.208"
+    android:viewportHeight="58.208">
+  <path
+      android:pathData="M29.104,29.104m-17.882,0a17.882,17.882 0,1 1,35.764 0a17.882,17.882 0,1 1,-35.764 0"
+      android:strokeWidth="1.2773"
+      android:strokeColor="@color/compass_stroke"/>
+  <path
+      android:pathData="m31.221,11.906 l-2.117,0 -2.117,0 1.058,-1.984 1.058,-1.984 1.058,1.984z"
+      android:fillColor="@color/compass_stroke"/>
+  <path
+      android:pathData="m46.302,31.221 l-0,-2.117 -0,-2.117 1.984,1.058 1.984,1.058 -1.984,1.058z"
+      android:fillColor="@color/compass_stroke"/>
+  <path
+      android:pathData="m11.906,26.988 l0,2.117 0,2.117 -1.984,-1.058 -1.984,-1.058 1.984,-1.058z"
+      android:fillColor="@color/compass_stroke"/>
+  <path
+      android:pathData="m31.221,46.302 l-2.117,-0 -2.117,-0 1.058,1.984 1.058,1.984 1.058,-1.984z"
+      android:fillColor="@color/compass_stroke" />
+  <path
+      android:pathData="m31.51,6.615h-1.315L27.949,2.983V6.615H26.698V1.323h1.631l1.93,3.031V1.323h1.251z"
+      android:fillColor="@color/compass_north_fill"/>
+  <path
+      android:pathData="m55.421,31.75h-3.827v-5.292h3.827v1.024h-2.47v0.913h2.292v1.024h-2.292v1.308h2.47z"
+      android:fillColor="@color/compass_letters"/>
+  <path
+      android:pathData="M6.615,26.458 L5.641,31.75L4.609,31.75L3.96,28.303 3.329,31.75L2.297,31.75L1.323,26.458l0.974,0l0.556,3.643 0.665,-3.643l0.93,0l0.634,3.643 0.583,-3.643z"
+      android:fillColor="@color/compass_letters"/>
+  <path
+      android:pathData="m31.366,55.318q0,0.782 -0.665,1.272 -0.661,0.487 -1.798,0.487 -0.657,0 -1.148,-0.114 -0.487,-0.117 -0.913,-0.295v-1.269h0.149q0.423,0.338 0.945,0.519 0.526,0.181 1.009,0.181 0.124,0 0.327,-0.021 0.203,-0.021 0.331,-0.071 0.156,-0.064 0.256,-0.16 0.103,-0.096 0.103,-0.284 0,-0.174 -0.149,-0.299 -0.146,-0.128 -0.43,-0.195 -0.299,-0.071 -0.633,-0.131 -0.331,-0.064 -0.622,-0.16 -0.668,-0.217 -0.963,-0.586 -0.291,-0.373 -0.291,-0.924 0,-0.739 0.661,-1.205 0.665,-0.469 1.706,-0.469 0.522,0 1.031,0.103 0.512,0.1 0.885,0.252v1.219h-0.146q-0.32,-0.256 -0.785,-0.426 -0.462,-0.174 -0.945,-0.174 -0.171,0 -0.341,0.025 -0.167,0.021 -0.323,0.085 -0.139,0.053 -0.238,0.163 -0.1,0.107 -0.1,0.245 0,0.21 0.16,0.323 0.16,0.11 0.604,0.203 0.291,0.06 0.558,0.117 0.27,0.057 0.579,0.156 0.608,0.199 0.896,0.544 0.291,0.341 0.291,0.888z"
+      android:fillColor="@color/compass_letters"/>
+</vector>

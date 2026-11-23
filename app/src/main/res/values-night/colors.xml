@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="compass_south_fill">#E6E1E5</color>
+    <color name="compass_stroke">#BDBDBD</color>
+    <color name="compass_letters">#FDF0F0</color>
+    <color name="compass_north_fill">#D32F2F</color>
+</resources>

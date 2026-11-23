@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
 import android.os.Looper
+import android.util.Log
+import androidx.core.content.ContextCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
@@ -65,10 +67,26 @@ class LocationGateway(private val context: Context) {
     val currentLocation: StateFlow<LocationData?> = _currentLocation
 
     /**
+     * Flag whether location receiver is registered.
+     */
+    private var isLocationReceiverRegistered: Boolean = false
+
+    /**
      * Running device's location client.
      */
     private val locationClient: FusedLocationProviderClient =
         LocationServices.getFusedLocationProviderClient(context)
+
+    /**
+     * Receiver object for location services.
+     */
+    private val locationReceiver = LocationBroadcastReceiver(
+        onTurnedOff = {
+            _currentLocation.update { null }
+            unregisterLocationUpdates()
+        },
+        onTurnedOn = this::requestLocationUpdates
+    )
 
     /**
      * Callback object for location updates.
@@ -81,11 +99,8 @@ class LocationGateway(private val context: Context) {
      * Checks whether location services are enabled.
      * @return True if location services are enabled; otherwise false.
      */
-    fun areLocationServicesEnabled(): Boolean {
-        val locationManager = context.getSystemService(LocationManager::class.java)
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-                || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-    }
+    fun areLocationServicesEnabled(): Boolean =
+        LocationBroadcastReceiver.areLocationServicesEnabled(context)
 
     /**
      * Checks whether the running device has necessary location permissions.
@@ -121,21 +136,12 @@ class LocationGateway(private val context: Context) {
     /**
      * Starts location updates.
      */
-    @SuppressLint("MissingPermission")
     fun startLocationUpdates() {
         if (_areLocationUpdatesActive.value) return
-        if (!hasDeviceLocationPermission() || !areLocationServicesEnabled()) return
 
-        val locationRequest = LocationRequest.Builder(
-                Priority.PRIORITY_HIGH_ACCURACY,
-                LOCATION_UPDATE_INTERVAL_MILLIS)
-            .setMinUpdateDistanceMeters(LOCATION_UPDATE_MIN_DISTANCE_DIFF).build()
-
-        locationClient.requestLocationUpdates(
-            locationRequest,
-            locationUpdateCallback,
-            Looper.getMainLooper()
-        )
+        _currentLocation.update { null }
+        registerLocationReceiver()
+        requestLocationUpdates()
         _areLocationUpdatesActive.update { true }
     }
 
@@ -145,7 +151,9 @@ class LocationGateway(private val context: Context) {
     fun stopLocationUpdates() {
         if (!_areLocationUpdatesActive.value) return
 
-        locationClient.removeLocationUpdates(locationUpdateCallback)
+        _currentLocation.update { null }
+        unregisterLocationUpdates()
+        unregisterLocationReceiver()
         _areLocationUpdatesActive.update { false }
     }
 
@@ -162,5 +170,82 @@ class LocationGateway(private val context: Context) {
     private fun hasDeviceFineLocationPermission(): Boolean =
         context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED
+
+    /**
+     * Registers receiver object for location services.
+     */
+    private fun registerLocationReceiver() {
+        if (!isLocationReceiverRegistered) {
+            Log.i(LocationGateway::class.simpleName, "Registered location receiver.")
+            val filter = android.content.IntentFilter().apply {
+                addAction(LocationManager.MODE_CHANGED_ACTION)
+            }
+            ContextCompat.registerReceiver(
+                context,
+                locationReceiver,
+                filter,
+                ContextCompat.RECEIVER_EXPORTED
+            )
+            isLocationReceiverRegistered = true
+        }
+    }
+
+    /**
+     * Requests location updates.
+     */
+    @SuppressLint("MissingPermission")
+    private fun requestLocationUpdates() {
+        if (!hasDeviceLocationPermission() || !areLocationServicesEnabled()) return
+
+        val locationRequest = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY,
+            LOCATION_UPDATE_INTERVAL_MILLIS)
+            .setMinUpdateDistanceMeters(LOCATION_UPDATE_MIN_DISTANCE_DIFF).build()
+
+        try {
+            locationClient.requestLocationUpdates(
+                locationRequest,
+                locationUpdateCallback,
+                Looper.getMainLooper()
+            )
+            Log.i(
+                LocationGateway::class.simpleName,
+                "Registered location updates callback...")
+        } catch (_: Exception) {
+            Log.w(
+                LocationGateway::class.simpleName,
+                "Failed to register location updates callback!")
+        }
+    }
+
+    /**
+     * Unregisters location receiver object.
+     */
+    private fun unregisterLocationReceiver() {
+        if (isLocationReceiverRegistered) {
+            Log.i(LocationGateway::class.simpleName, "Unregistered location receiver.")
+            context.unregisterReceiver(locationReceiver)
+            isLocationReceiverRegistered = false
+        }
+    }
+
+    /**
+     * Unregisters location updates.
+     */
+    @SuppressLint("MissingPermission")
+    private fun unregisterLocationUpdates() {
+        if (!hasDeviceLocationPermission()) return
+
+        try {
+            locationClient.removeLocationUpdates(locationUpdateCallback)
+            Log.i(
+                LocationGateway::class.simpleName,
+                "Unregistered location updates callback...")
+        } catch (_: Exception) {
+            Log.e(
+                LocationGateway::class.simpleName,
+                "Failed to unregister location updates callback!")
+        }
+    }
 
 }

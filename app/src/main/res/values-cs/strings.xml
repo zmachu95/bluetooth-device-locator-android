@@ -41,9 +41,19 @@
     <string name="start_scan_button_caption">Začít hledat</string>
     <string name="stop_scan_button_caption">Ukončit hledání</string>
     <string name="enable_bluetooth_prompt">Potáhněte prstem seshora dolů a v nabídce zapněte Bluetooth.</string>
-    <string name="no_bluetooth_search_without_permissions">Bez Bluetooth oprávnění nelze vyhledat okolní zařízení!</string>
+    <string name="no_bluetooth_search_without_permissions">Bez oprávnění nelze vyhledat okolní zařízení!</string>
     <string name="device_saved">Zařízení uloženo!</string>
     <string name="device_location_unavailable">Nelze získat polohu. Zkontrolujte nastavení služeb polohy.</string>
     <string name="enable_location_services_prompt">Potáhněte prstem seshora dolů a v nabídce zapněte Určování polohy.</string>
     <string name="enable_bluetooth_and_location_services_prompt">Prosím zapněte v nastavení Bluetooth a Služby určování polohy.</string>
+    <string name="device_or_location_not_found">Zařízení nebo lokace nebyla nalezena!</string>
+    <string name="finding_device_name">Hledám: %1$s</string>
+    <string name="location_timestamp_icon">Čas uložení lokace</string>
+    <string name="gps_distance_acquired">GPS vzdálenost: %1$d ± %2$d m</string>
+    <string name="gps_distance_calculating">GPS vzdálenost: počítám…</string>
+    <string name="signal_strength_active_label">Síla signálu: %1$d dBm</string>
+    <string name="signal_strength_inactive_label">Síla signálu: mimo dosah!</string>
+    <string name="compass_body_image">Tělo kompasu</string>
+    <string name="compass_arrow_image">Střelka kompasu</string>
+    <string name="proximity_thermometer_image">Teploměr se sílou signálu</string>
 </resources>

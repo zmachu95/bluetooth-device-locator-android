@@ -40,9 +40,19 @@
     <string name="start_scan_button_caption">Start Scan</string>
     <string name="stop_scan_button_caption">Stop Scan</string>
     <string name="enable_bluetooth_prompt">Swipe down from the top and enable Bluetooth in Quick Settings.</string>
-    <string name="no_bluetooth_search_without_permissions">Cannot search for nearby devices without Bluetooth permissions!</string>
+    <string name="no_bluetooth_search_without_permissions">Cannot search for nearby devices without permissions!</string>
     <string name="device_saved">Device saved!</string>
     <string name="device_location_unavailable">Could not get location. Check Location Services settings.</string>
     <string name="enable_location_services_prompt">Swipe down from the top and enable Location Services in Settings.</string>
     <string name="enable_bluetooth_and_location_services_prompt">Enable Bluetooth and Location Services in Quick Settings.</string>
+    <string name="device_or_location_not_found">Device or location not found!</string>
+    <string name="finding_device_name">Finding: %1$s</string>
+    <string name="location_timestamp_icon">Location timestamp</string>
+    <string name="gps_distance_acquired">GPS distance: %1$d ± %2$d m</string>
+    <string name="gps_distance_calculating">GPS distance: calculating…</string>
+    <string name="signal_strength_active_label">Signal strength: %1$d dBm</string>
+    <string name="signal_strength_inactive_label">Signal strength: out of range!</string>
+    <string name="compass_body_image">Compass body</string>
+    <string name="compass_arrow_image">Compass arrow</string>
+    <string name="proximity_thermometer_image">Signal strength thermometer</string>
 </resources>

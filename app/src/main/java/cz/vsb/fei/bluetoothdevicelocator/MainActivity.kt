@@ -8,11 +8,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
+import cz.vsb.fei.bluetoothdevicelocator.data.LocationEntity
 import cz.vsb.fei.bluetoothdevicelocator.ui.theme.BluetoothDeviceLocatorTheme
 
 import cz.vsb.fei.bluetoothdevicelocator.data.LocatorRepository
 import cz.vsb.fei.bluetoothdevicelocator.hardware.BluetoothGateway
+import cz.vsb.fei.bluetoothdevicelocator.hardware.CompassGateway
 import cz.vsb.fei.bluetoothdevicelocator.hardware.LocationGateway
+import cz.vsb.fei.bluetoothdevicelocator.ui.IScreen
 import cz.vsb.fei.bluetoothdevicelocator.ui.MainAppScaffold
 import cz.vsb.fei.bluetoothdevicelocator.viewmodel.LocatorViewModel
 import cz.vsb.fei.bluetoothdevicelocator.viewmodel.LocatorViewModelFactory
@@ -26,17 +30,41 @@ class MainActivity : ComponentActivity() {
         BluetoothGateway.getBluetoothPermissions() + LocationGateway.LOCATION_PERMISSIONS
 
     /**
-     * Launcher for requesting necessary permissions.
+     * Launcher for requesting necessary permissions to perform single Bluetooth scan for nearby devices.
      */
-    private val blueToothScanPermissionLauncher = registerForActivityResult(
+    private val bluetoothSingleScanPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissionsMap ->
         val context = applicationContext
         val hasPermissions = hasNecessaryPermissions(permissionsMap)
 
         if (hasPermissions && hasHardwareReady()) {
-            viewModel.startBluetoothScan()
+            viewModel.startBluetoothScan(false)
         } else if (!hasPermissions) {
+            Toast.makeText(
+                context,
+                context.resources.getString(R.string.no_bluetooth_search_without_permissions),
+                Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Launcher for requesting necessary permissions to perform finding a specific device
+     */
+    private val findDevicePermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissionsMap ->
+        val context = applicationContext
+        val hasPermissions = hasNecessaryPermissions(permissionsMap)
+
+        if (hasPermissions) {
+            viewModel.startBluetoothScan(true)
+            viewModel.startCompassUpdates()
+            viewModel.startLocationUpdates()
+            viewModel.changeCurrentScreen(viewModel.cachedFindDeviceScreen)
+
+            hasHardwareReady()
+        } else {
             Toast.makeText(
                 context,
                 context.resources.getString(R.string.no_bluetooth_search_without_permissions),
@@ -51,7 +79,8 @@ class MainActivity : ComponentActivity() {
         LocatorViewModelFactory(
             repository = LocatorRepository(applicationContext),
             bluetoothGateway = BluetoothGateway(applicationContext),
-            locationGateway = LocationGateway(applicationContext)
+            locationGateway = LocationGateway(applicationContext),
+            compassGateway = CompassGateway(applicationContext)
         )
     }
 
@@ -62,9 +91,10 @@ class MainActivity : ComponentActivity() {
             BluetoothDeviceLocatorTheme {
                 MainAppScaffold(
                     viewModel,
-                    onStartBluetoothScan = this::startBluetoothScan,
+                    onStartBluetoothScan = this::startSingleBluetoothScan,
                     onDeviceStoredSuccessfully = this::showDeviceSavedToast,
-                    onLocationUnavailable = this::showLocationUnavailableToast
+                    onLocationUnavailable = this::showLocationUnavailableToast,
+                    initializeFindDeviceScreen = this::startFindingDevice
                 )
             }
         }
@@ -108,10 +138,10 @@ class MainActivity : ComponentActivity() {
      * @return Whether all necessary permissions are granted.
      */
     private fun hasNecessaryPermissions(): Boolean =
-        hasNecessaryPermissions(applicationPermissions.map{
-            it to (applicationContext.checkSelfPermission(it)
+        hasNecessaryPermissions(applicationPermissions.associateWith {
+            (applicationContext.checkSelfPermission(it)
                     == PackageManager.PERMISSION_GRANTED)
-        }.toMap())
+        })
 
     /**
      * Shows toast when device is successfully saved.
@@ -130,15 +160,39 @@ class MainActivity : ComponentActivity() {
         Toast.LENGTH_SHORT).show()
 
     /**
-     * Starts Bluetooth scanning with permissions check.
+     * Starts single Bluetooth scan with permissions check.
      */
-    private fun startBluetoothScan() {
+    private fun startSingleBluetoothScan() {
         val hasPermissions = hasNecessaryPermissions()
         if (hasPermissions && hasHardwareReady()) {
-            viewModel.startBluetoothScan()
+            viewModel.startBluetoothScan(false)
         } else if (!hasPermissions) {
-            blueToothScanPermissionLauncher.launch(applicationPermissions)
+            bluetoothSingleScanPermissionLauncher.launch(applicationPermissions)
         }
+    }
+
+    /**
+     * Starts finding a specific device with permissions check.
+     * @param device Device to find.
+     * @param location Location of the device.
+     * @param deviceLocationRssi Value of RSSI for the device at the location.
+     */
+    private fun startFindingDevice(device: DeviceEntity?,
+                                   location: LocationEntity?,
+                                   deviceLocationRssi: Float?) {
+        viewModel.cachedFindDeviceScreen = IScreen.FindDevice(device, location, deviceLocationRssi)
+        val hasPermissions = hasNecessaryPermissions()
+        if (hasPermissions) {
+            viewModel.startBluetoothScan(true)
+            viewModel.startCompassUpdates()
+            viewModel.startLocationUpdates()
+            viewModel.changeCurrentScreen(viewModel.cachedFindDeviceScreen)
+
+            hasHardwareReady()
+        } else {
+            findDevicePermissionLauncher.launch(applicationPermissions)
+        }
+
     }
 
 }
