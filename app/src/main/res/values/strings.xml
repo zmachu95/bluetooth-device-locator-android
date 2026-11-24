@@ -12,7 +12,8 @@
     <string name="delete_all_button_caption">Delete All</string>
     <string name="cancel_button_caption">Cancel</string>
     <string name="no_devices_to_show">No devices have been saved yet. Please save a device first.</string>
-    <string name="select_device_prompt">Select device to track (%d found)</string>
+    <string name="select_device_prompt_singular">Select device to track (%d found)</string>
+    <string name="select_device_prompt_plural">Select device to track (%d found)</string>
     <string name="mac_address_label">MAC: %s</string>
     <string name="delete_device_icon_description">Delete device</string>
     <string name="tracked_devices_card_prompt">💡 Tap card to use last location</string>
@@ -25,7 +26,8 @@
     <string name="continue_button_caption">Continue</string>
     <string name="device_not_found_caption">Error!</string>
     <string name="device_not_found_text">Device not found!</string>
-    <string name="select_device_location_prompt">Select device location by time (%d found)</string>
+    <string name="select_device_location_prompt_singular">Select device location by time (%d found)</string>
+    <string name="select_device_location_prompt_plural">Select device location by time (%d found)</string>
     <string name="delete_device_location_icon_description">Delete location</string>
     <string name="delete_all_but_last_location_button_caption">Delete all but recent</string>
     <string name="scan_for_bt_devices_label">Scan for Bluetooth Devices</string>
@@ -40,7 +42,7 @@
     <string name="start_scan_button_caption">Start Scan</string>
     <string name="stop_scan_button_caption">Stop Scan</string>
     <string name="enable_bluetooth_prompt">Swipe down from the top and enable Bluetooth in Quick Settings.</string>
-    <string name="no_bluetooth_search_without_permissions">Cannot search for nearby devices without permissions!</string>
+    <string name="no_bluetooth_search_without_permissions">Cannot search for devices without permissions!</string>
     <string name="device_saved">Device saved!</string>
     <string name="device_location_unavailable">Could not get location. Check Location Services settings.</string>
     <string name="enable_location_services_prompt">Swipe down from the top and enable Location Services in Settings.</string>

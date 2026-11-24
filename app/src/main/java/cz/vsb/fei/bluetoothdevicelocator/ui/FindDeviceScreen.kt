@@ -10,7 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -24,7 +23,6 @@ import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -35,15 +33,9 @@ import cz.vsb.fei.bluetoothdevicelocator.R
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
 import cz.vsb.fei.bluetoothdevicelocator.data.LocationData
 import cz.vsb.fei.bluetoothdevicelocator.data.LocationEntity
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.format
-import kotlinx.datetime.format.DateTimeComponents
-import kotlinx.datetime.format.char
-import kotlinx.datetime.offsetAt
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.time.Clock
-import kotlin.time.Instant
 
 /**
  * Original width of temperature bar image in pixels.
@@ -144,32 +136,10 @@ fun FindDeviceScreen(
     }
 
     if (device == null || deviceLocation == null) {
-        Column(
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = modifier.fillMaxSize().padding(48.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.device_not_found_caption),
-                style = MaterialTheme.typography.displayLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.error
-            )
-
-            Icon(
-                imageVector = Icons.Default.Error,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(32.dp).size(128.dp)
-            )
-
-            Text(
-                text = stringResource(R.string.device_or_location_not_found),
-                style = MaterialTheme.typography.displayLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
+        ErrorScreenContent(
+            errorMessage = stringResource(R.string.device_or_location_not_found),
+            modifier = modifier
+        )
     } else {
         Column(
             modifier = modifier
@@ -305,7 +275,7 @@ private fun MapPlaceholder() {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "Zde bude Google Mapa",
+            text = "Here will be Google Maps / OpenStreetMap.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -470,20 +440,4 @@ private fun FindDeviceScreenPreview() {
             mapContent = {MapPlaceholder()}
         )
     }
-}
-
-/**
- * Formats instant to DD-MM-YYYY HH:mm string.
- */
-private fun Instant.toFormattedString(): String {
-    val customFormat = DateTimeComponents.Format {
-        day(); chars(". "); monthNumber(); chars(". "); year()
-        char(' ')
-        hour(); char(':'); minute()
-    }
-
-    val systemZone = TimeZone.currentSystemDefault()
-    val offset = systemZone.offsetAt(this)
-
-    return this.format(customFormat, offset)
 }

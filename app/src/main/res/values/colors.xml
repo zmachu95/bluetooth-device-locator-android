@@ -12,4 +12,7 @@
     <color name="compass_stroke">#000000</color>
     <color name="compass_letters">#757575</color>
     <color name="compass_north_fill">#FF2925</color>
+
+    <color name="menu_icon_magnify_glass">#333333</color>
+    <color name="menu_icon_bluetooth">#374FEF</color>
 </resources>

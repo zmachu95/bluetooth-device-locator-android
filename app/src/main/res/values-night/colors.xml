@@ -4,4 +4,7 @@
     <color name="compass_stroke">#BDBDBD</color>
     <color name="compass_letters">#FDF0F0</color>
     <color name="compass_north_fill">#D32F2F</color>
+
+    <color name="menu_icon_magnify_glass">#A4A3A3</color>
+    <color name="menu_icon_bluetooth">#2073BA</color>
 </resources>

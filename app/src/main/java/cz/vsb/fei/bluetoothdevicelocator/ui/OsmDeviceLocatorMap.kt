@@ -100,6 +100,9 @@ fun OsmDeviceLocatorMap(
      */
     var zoomedToMarkers by remember { mutableStateOf(false) }
 
+    /**
+     * Flag whether the markers were centered for the first time.
+     */
     var centeredOnBothMarkersForFirstTime by remember { mutableStateOf(false) }
 
     AndroidView(
@@ -108,6 +111,7 @@ fun OsmDeviceLocatorMap(
             MapView(ctx).apply {
                 setTileSource(TileSourceFactory.MAPNIK)
                 setMultiTouchControls(true)
+                setDestroyMode(false)
                 controller.setZoom(INITIAL_MAP_ZOOM_FACTOR)
                 controller.setCenter(devicePoint)
             }
@@ -115,7 +119,7 @@ fun OsmDeviceLocatorMap(
         update = { mapView ->
             mapView.overlays.clear()
             val netAccuracy: Double = deviceLocation.calculateNetAccuracy(
-                deviceLocation.accuracy, deviceLocationRssi)
+                0.0, deviceLocationRssi)
 
             val userPoint: GeoPoint? = if (currentLocation != null) {
                 GeoPoint(currentLocation.latitude, currentLocation.longitude)
@@ -136,7 +140,11 @@ fun OsmDeviceLocatorMap(
             mapView.invalidate()
         },
         onRelease = { mapView ->
-            mapView.onDetach()
+            try {
+                mapView.onDetach()
+            } catch (_: Exception) {
+                /* do nothing */
+            }
         }
     )
 
@@ -210,7 +218,7 @@ private fun drawDeviceAndUserMarkers(
 
     drawLineBetweenMarkers(devicePoint, userPoint, mapView)
     mapView.overlays.add(deviceMarker)
-    mapView.overlays.add(userMarker)
+    if (userMarker != null) mapView.overlays.add(userMarker)
 }
 
 /**

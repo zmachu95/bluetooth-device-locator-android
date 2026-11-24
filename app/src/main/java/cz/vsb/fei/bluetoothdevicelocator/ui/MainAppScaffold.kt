@@ -1,6 +1,7 @@
 package cz.vsb.fei.bluetoothdevicelocator.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -72,6 +73,7 @@ fun MainAppScaffold(
      */
     val devicesLocationsSignalData by viewModel.devicesLocationsSignalData.collectAsState()
 
+    // overrides behavior of phone's back button
     BackHandler(
         enabled = currentScreen != IScreen.Menu,
         onBack = viewModel::navigateBack
@@ -132,109 +134,166 @@ fun MainAppScaffold(
                 modifier = Modifier.padding(innerPadding)
             )
 
-            IScreen.ShowTrackedDevices -> {
-                val devicesLastLocations by viewModel.devicesLastLocations.collectAsState()
+            IScreen.ShowTrackedDevices -> ShowTrackedDevicesScreen(
+                viewModel = viewModel,
+                savedDevices = savedDevices,
+                devicesLocationsSignalData = devicesLocationsSignalData,
+                initializeFindDeviceScreen = initializeFindDeviceScreen,
+                innerPadding = innerPadding
+            )
 
-                ShowTrackedDevicesScreen(
-                    devices = savedDevices.values.toList(),
-                    onSelectLocation = { deviceId ->
-                        viewModel.changeCurrentScreen(
-                            IScreen.SingleDeviceLocations(savedDevices[deviceId])
-                        )
-                    },
-                    onDeleteDevice = { deviceId ->
-                        viewModel.removeDevice(deviceId)
-                    },
-                    onUseLastLocation = { deviceId ->
-                        val device = savedDevices[deviceId]
-                        val location = if (device != null) devicesLastLocations[device] else null
-                        val deviceLocationPair = Pair(
-                            device?.deviceId ?: -1, location?.locationId ?: -1
-                        )
-                        val deviceLocationRssi = devicesLocationsSignalData[deviceLocationPair]
+            is IScreen.SingleDeviceLocations -> SingleDeviceLocationsScreen(
+                viewModel = viewModel,
+                device = (currentScreen as IScreen.SingleDeviceLocations).device,
+                devicesLocationsSignalData = devicesLocationsSignalData,
+                initializeFindDeviceScreen = initializeFindDeviceScreen,
+                innerPadding = innerPadding
+            )
 
-                        initializeFindDeviceScreen(device,location, deviceLocationRssi)
-                    },
-                    onDeleteAllDevices = { viewModel.removeAllDevices() },
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
+            IScreen.StoreNearbyDevices -> StoreNearbyDevicesScreen(
+                foundDevices = nearbyDevicesSingleScan,
+                isScanning = isBluetoothScanning,
+                onStartScan = onStartBluetoothScan,
+                onStopScan = viewModel::stopBluetoothScan,
+                onSaveDevice = { deviceData ->
+                    viewModel.saveDeviceWithLocation(
+                        deviceData = deviceData,
+                        onSuccess = onDeviceStoredSuccessfully,
+                        onUnavailableLocation = onLocationUnavailable
+                    )
+                },
+                modifier = Modifier.padding(innerPadding)
+            )
 
-            is IScreen.SingleDeviceLocations -> {
-                val device = (currentScreen as IScreen.SingleDeviceLocations).device
-                val deviceLocations by viewModel
-                    .getLocationsForDevice(device?.deviceId)
-                    .collectAsState(initial = emptyMap())
-
-                SingleDeviceLocationsScreen(
-                    device = device,
-                    locations = deviceLocations.values.toList(),
-                    onSelectSpecificLocation = { locationId ->
-                        val location = deviceLocations[locationId]
-                        val deviceLocationPair = Pair(device?.deviceId ?: -1, locationId)
-                        val deviceLocationRssi = devicesLocationsSignalData[deviceLocationPair]
-
-                        initializeFindDeviceScreen(device, location, deviceLocationRssi)
-                    },
-                    onDeleteLocation = { locationId ->
-                        if (device != null) {
-                            viewModel.removeDeviceLocation(device.deviceId, locationId)
-                        }
-                    },
-                    onDeleteAllLocationsButRecent = {
-                        if (device != null) {
-                            viewModel.removeDeviceLocationsButLast(device.deviceId)
-                        }
-                    },
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
-
-            IScreen.StoreNearbyDevices -> {
-                StoreNearbyDevicesScreen(
-                    foundDevices = nearbyDevicesSingleScan,
-                    isScanning = isBluetoothScanning,
-                    onStartScan = onStartBluetoothScan,
-                    onStopScan = viewModel::stopBluetoothScan,
-                    onSaveDevice = { deviceData ->
-                        viewModel.saveDeviceWithLocation(
-                            deviceData = deviceData,
-                            onSuccess = onDeviceStoredSuccessfully,
-                            onUnavailableLocation = onLocationUnavailable
-                        )
-                    },
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
-
-            is IScreen.FindDevice -> {
-                val nearbyDevicesContinuousScan by viewModel.nearbyDevicesContinuousScan
-                    .collectAsState()
-
-                val azimuthAngle by viewModel.azimuthAngle.collectAsState()
-                val device = (currentScreen as IScreen.FindDevice).device
-                val location = (currentScreen as IScreen.FindDevice).location
-                val deviceLocationRssi = (currentScreen as IScreen.FindDevice).deviceLocationRssi
-                    ?: 0f
-                val currentLocation by viewModel.currentLocation.collectAsState()
-                val currentDeviceRssi = nearbyDevicesContinuousScan[device?.macAddress]?.rssi
-
-                FindDeviceScreen(
-                    device = device,
-                    deviceLocation = location,
-                    deviceLocationRssi = deviceLocationRssi,
-                    currentLocation = currentLocation,
-                    currentRssi = currentDeviceRssi,
-                    azimuthDegrees = azimuthAngle,
-                    onResumeSensors = viewModel::resumeFindDeviceSensors,
-                    onPauseSensors = viewModel::pauseFindDeviceSensors,
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
-
-            else -> {}
+            is IScreen.FindDevice -> FindDeviceScreen(
+                viewModel = viewModel,
+                device = (currentScreen as IScreen.FindDevice).device,
+                location = (currentScreen as IScreen.FindDevice).location,
+                deviceLocationRssi = (currentScreen as IScreen.FindDevice).deviceLocationRssi,
+                innerPadding = innerPadding
+            )
         }
     }
+}
+
+/**
+ * Provides launcher for FindDevice screen.
+ * @param viewModel Locator view model.
+ * @param device Device to find.
+ * @param location Location of the device.
+ * @param deviceLocationRssi Value of RSSI for the device at the location.
+ * @param innerPadding Padding values.
+ */
+@Composable
+private fun FindDeviceScreen(
+    viewModel: LocatorViewModel,
+    device: DeviceEntity?,
+    location: LocationEntity?,
+    deviceLocationRssi: Float?,
+    innerPadding: PaddingValues
+) {
+    val nearbyDevicesContinuousScan by viewModel.nearbyDevicesContinuousScan.collectAsState()
+    val azimuthAngle by viewModel.azimuthAngle.collectAsState()
+    val currentLocation by viewModel.currentLocation.collectAsState()
+    val currentDeviceRssi = nearbyDevicesContinuousScan[device?.macAddress]?.rssi
+
+    FindDeviceScreen(
+        device = device,
+        deviceLocation = location,
+        deviceLocationRssi = deviceLocationRssi ?: 0f,
+        currentLocation = currentLocation,
+        currentRssi = currentDeviceRssi,
+        azimuthDegrees = azimuthAngle,
+        onResumeSensors = viewModel::resumeFindDeviceSensors,
+        onPauseSensors = viewModel::pauseFindDeviceSensors,
+        modifier = Modifier.padding(innerPadding)
+    )
+}
+
+/**
+ * Provides launcher for ShowTrackedDevices screen.
+ * @param viewModel Locator view model.
+ * @param savedDevices Map of currently saved devices.
+ * @param devicesLocationsSignalData RSSI values mapped to device-location pairs.
+ * @param initializeFindDeviceScreen Callback used to initialize FindDevice screen.
+ * @param innerPadding Padding values.
+ */
+@Composable
+private fun ShowTrackedDevicesScreen(
+    viewModel: LocatorViewModel,
+    savedDevices: Map<Long, DeviceEntity>,
+    devicesLocationsSignalData: Map<Pair<Long, Long>, Float>,
+    initializeFindDeviceScreen: (DeviceEntity?, LocationEntity?, Float?) -> Unit,
+    innerPadding: PaddingValues
+) {
+    val devicesLastLocations by viewModel.devicesLastLocations.collectAsState()
+
+    ShowTrackedDevicesScreen(
+        devices = savedDevices.values.toList(),
+        onSelectLocation = { deviceId ->
+            viewModel.changeCurrentScreen(
+                IScreen.SingleDeviceLocations(savedDevices[deviceId])
+            )
+        },
+        onDeleteDevice = { deviceId ->
+            viewModel.removeDevice(deviceId)
+        },
+        onUseLastLocation = { deviceId ->
+            val device = savedDevices[deviceId]
+            val location = if (device != null) devicesLastLocations[device] else null
+            val deviceLocationPair = Pair(
+                device?.deviceId ?: -1, location?.locationId ?: -1
+            )
+            val deviceLocationRssi = devicesLocationsSignalData[deviceLocationPair]
+
+            initializeFindDeviceScreen(device,location, deviceLocationRssi)
+        },
+        onDeleteAllDevices = { viewModel.removeAllDevices() },
+        modifier = Modifier.padding(innerPadding)
+    )
+}
+
+/**
+ * Provides launcher for SingleDeviceLocations screen.
+ * @param viewModel Locator view model.
+ * @param device Device to show locations for.
+ * @param devicesLocationsSignalData RSSI values mapped to device-location pairs.
+ * @param initializeFindDeviceScreen Callback used to initialize FindDevice screen.
+ * @param innerPadding Padding values.
+ */
+@Composable
+private fun SingleDeviceLocationsScreen(
+    viewModel: LocatorViewModel,
+    device: DeviceEntity?,
+    devicesLocationsSignalData: Map<Pair<Long, Long>, Float>,
+    initializeFindDeviceScreen: (DeviceEntity?, LocationEntity?, Float?) -> Unit,
+    innerPadding: PaddingValues
+) {
+    val deviceLocations by viewModel.getLocationsForDevice(device?.deviceId)
+        .collectAsState(initial = emptyMap())
+
+    SingleDeviceLocationsScreen(
+        device = device,
+        locations = deviceLocations.values.toList(),
+        onSelectSpecificLocation = { locationId ->
+            val location = deviceLocations[locationId]
+            val deviceLocationPair = Pair(device?.deviceId ?: -1, locationId)
+            val deviceLocationRssi = devicesLocationsSignalData[deviceLocationPair]
+
+            initializeFindDeviceScreen(device, location, deviceLocationRssi)
+        },
+        onDeleteLocation = { locationId ->
+            if (device != null) {
+                viewModel.removeDeviceLocation(device.deviceId, locationId)
+            }
+        },
+        onDeleteAllLocationsButRecent = {
+            if (device != null) {
+                viewModel.removeDeviceLocationsButLast(device.deviceId)
+            }
+        },
+        modifier = Modifier.padding(innerPadding)
+    )
 }
 
 /**

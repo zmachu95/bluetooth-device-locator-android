@@ -13,7 +13,8 @@
     <string name="delete_all_button_caption">Smazat vše</string>
     <string name="cancel_button_caption">Zrušit</string>
     <string name="no_devices_to_show">Nenalezena žádná zařízení. Prosím nejprve nějaké zařízení uložte.</string>
-    <string name="select_device_prompt">Vyberte zařízení k nalezení (%d uloženo)</string>
+    <string name="select_device_prompt_singular">Vyberte zařízení k nalezení (%d uloženo)</string>
+    <string name="select_device_prompt_plural">Vyberte zařízení k nalezení (%d uložena)</string>
     <string name="mac_address_label">MAC: %s</string>
     <string name="delete_device_icon_description">Smazat zařízení</string>
     <string name="tracked_devices_card_prompt">💡 Klepněte zde pro poslední lokaci</string>
@@ -26,7 +27,8 @@
     <string name="continue_button_caption">Pokračovat</string>
     <string name="device_not_found_caption">Chyba!</string>
     <string name="device_not_found_text">Zařízení nenalezeno!</string>
-    <string name="select_device_location_prompt">Vyberte lokaci zařízení podle času (%d uloženo)</string>
+    <string name="select_device_location_prompt_singular">Vyberte lokaci zařízení podle času (%d uložena)</string>
+    <string name="select_device_location_prompt_plural">Vyberte lokaci zařízení podle času (%d uloženy)</string>
     <string name="delete_device_location_icon_description">Smazat</string>
     <string name="delete_all_but_last_location_button_caption">Smazat vše kromě poslední</string>
     <string name="scan_for_bt_devices_label">Hledat Bluetooth zařízení</string>
@@ -41,7 +43,7 @@
     <string name="start_scan_button_caption">Začít hledat</string>
     <string name="stop_scan_button_caption">Ukončit hledání</string>
     <string name="enable_bluetooth_prompt">Potáhněte prstem seshora dolů a v nabídce zapněte Bluetooth.</string>
-    <string name="no_bluetooth_search_without_permissions">Bez oprávnění nelze vyhledat okolní zařízení!</string>
+    <string name="no_bluetooth_search_without_permissions">Bez oprávnění nelze vyhledat zařízení!</string>
     <string name="device_saved">Zařízení uloženo!</string>
     <string name="device_location_unavailable">Nelze získat polohu. Zkontrolujte nastavení služeb polohy.</string>
     <string name="enable_location_services_prompt">Potáhněte prstem seshora dolů a v nabídce zapněte Určování polohy.</string>

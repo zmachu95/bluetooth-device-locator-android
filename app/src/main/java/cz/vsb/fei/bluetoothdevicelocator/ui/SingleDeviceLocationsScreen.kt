@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,30 +18,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
 import cz.vsb.fei.bluetoothdevicelocator.data.LocationEntity
-import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
-import kotlin.time.Instant
-import kotlinx.datetime.format
-import kotlinx.datetime.format.DateTimeComponents
-import kotlinx.datetime.format.char
-import kotlinx.datetime.offsetAt
 import cz.vsb.fei.bluetoothdevicelocator.R
-
-/**
- * Formats instant to DD-MM-YYYY HH:mm string.
- */
-private fun Instant.toFormattedString(): String {
-    val customFormat = DateTimeComponents.Format {
-        day(); char('-'); monthNumber(); char('-'); year()
-        char(' ')
-        hour(); char(':'); minute()
-    }
-
-    val systemZone = TimeZone.currentSystemDefault()
-    val offset = systemZone.offsetAt(this)
-
-    return this.format(customFormat, offset)
-}
 
 /**
  * Defines screen for showing saved locations of a single device.
@@ -76,107 +53,27 @@ fun SingleDeviceLocationsScreen(
     if (device != null) {
         /* show dialogs only when device is not null */
         if (showDeleteDialog) {
-            AlertDialog(
-                onDismissRequest = { showDeleteDialog = false },
-                title = {
-                    Text(
-                        text = stringResource(R.string.delete_location_history_caption)
-                    )
+            ConfirmDeleteDialog(
+                onConfirm = {
+                    onDeleteAllLocationsButRecent()
+                    showDeleteDialog = false
                 },
-                text = {
-                    Text(
-                        text = stringResource(R.string.delete_location_history_text)
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            onDeleteAllLocationsButRecent()
-                            showDeleteDialog = false
-                        },
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Text(
-                            text = stringResource(R.string.delete_all_button_caption)
-                        )
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        onClick = { showDeleteDialog = false }
-                    ) {
-                        Text(
-                            text = stringResource(R.string.cancel_button_caption)
-                        )
-                    }
-                }
+                onDismiss = { showDeleteDialog = false }
             )
         }
 
         if (showCannotDeleteDialog) {
-            AlertDialog(
-                onDismissRequest = { showCannotDeleteDialog = false },
-                title = {
-                    Text(
-                        text = stringResource(R.string.cannot_delete_last_location_caption)
-                    )
-                },
-                text = {
-                    Text(
-                        text = stringResource(R.string.cannot_delete_last_location_text)
-                    )
-                },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Filled.Block,
-                        contentDescription = null
-                    )
-                },
-                confirmButton = {
-                    TextButton(
-                        onClick = { showCannotDeleteDialog = false },
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
-                        )
-                    ) {
-                        Text(
-                            text = stringResource(R.string.continue_button_caption)
-                        )
-                    }
-                }
+            CannotDeleteDialog(
+                onDismiss = { showCannotDeleteDialog = false }
             )
         }
     }
 
     if (device == null) {
-        Column(
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxSize().padding(48.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.device_not_found_caption),
-                style = MaterialTheme.typography.displayLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.error
-            )
-
-            Icon (
-                imageVector = Icons.Default.Error,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(32.dp).size(128.dp)
-            )
-
-            Text(
-                text = stringResource(R.string.device_not_found_text),
-                style = MaterialTheme.typography.displayLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.error
-            )
-        }
+        ErrorScreenContent(
+            errorMessage = stringResource(R.string.device_not_found_text),
+            modifier = modifier
+        )
     } else {
         Column(
             modifier = modifier
@@ -207,8 +104,11 @@ fun SingleDeviceLocationsScreen(
             Spacer(Modifier.height(12.dp))
 
             Text(
-                text = stringResource(R.string.select_device_location_prompt)
-                    .format(locations.size),
+                text = if (locations.size == 1) {
+                    stringResource(R.string.select_device_location_prompt_singular)
+                } else {
+                    stringResource(R.string.select_device_location_prompt_plural)
+                }.format(locations.size),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
@@ -221,36 +121,17 @@ fun SingleDeviceLocationsScreen(
                 modifier = Modifier.weight(1f)
             ) {
                 items(locations) { location ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelectSpecificLocation(location.locationId) }
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = location.timestamp.toFormattedString(),
-                                modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-
-                            IconButton(onClick = {
-                                if (locations.size > 1) {
-                                    onDeleteLocation(location.locationId)
-                                } else {
-                                    showCannotDeleteDialog = true
-                                }
-                            }) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = stringResource(R.string.delete_device_location_icon_description),
-                                    tint = MaterialTheme.colorScheme.error
-                                )
+                    DeviceCard(
+                        onCardClick = { onSelectSpecificLocation(location.locationId) },
+                        locationTimestampText = location.timestamp.toFormattedString(),
+                        deleteLocationCallback =  {
+                            if (locations.size > 1) {
+                                onDeleteLocation(location.locationId)
+                            } else {
+                                showCannotDeleteDialog = true
                             }
                         }
-                    }
+                    )
                 }
             }
 
@@ -270,6 +151,131 @@ fun SingleDeviceLocationsScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     color = if (locations.size > 1) MaterialTheme.colorScheme.error else
                         MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Defines warning dialog for trying to delete the last location.
+ * @param onDismiss Callback when dismissing the dialog.
+ */
+@Composable
+private fun CannotDeleteDialog(
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.cannot_delete_last_location_caption)
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.cannot_delete_last_location_text)
+            )
+        },
+        icon = {
+            Icon(
+                imageVector = Icons.Filled.Block,
+                contentDescription = null
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.continue_button_caption)
+                )
+            }
+        }
+    )
+}
+
+/**
+ * Defines warning dialog for deleting all locations but last.
+ * @param onConfirm Callback when confirming deletion.
+ * @param onDismiss Callback when dismissing the dialog.
+ */
+@Composable
+private fun ConfirmDeleteDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.delete_location_history_caption)
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.delete_location_history_text)
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.delete_all_button_caption)
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text(
+                    text = stringResource(R.string.cancel_button_caption)
+                )
+            }
+        }
+    )
+}
+
+/**
+ * Defines a single device location card.
+ * @param onCardClick Callback to use when clicking the card.
+ * @param locationTimestampText Timestamp of the location.
+ * @param deleteLocationCallback Callback to use when deleting the location.
+ */
+@Composable
+private fun DeviceCard(
+    onCardClick: () -> Unit,
+    locationTimestampText: String,
+    deleteLocationCallback: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onCardClick)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Text(
+                text = locationTimestampText,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            IconButton(
+                onClick = deleteLocationCallback
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.delete_device_location_icon_description),
+                    tint = MaterialTheme.colorScheme.error
                 )
             }
         }

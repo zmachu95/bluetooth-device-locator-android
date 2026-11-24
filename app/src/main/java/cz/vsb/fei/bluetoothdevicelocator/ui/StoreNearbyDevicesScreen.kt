@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceData
@@ -38,46 +39,15 @@ fun StoreNearbyDevicesScreen(
     Column(
         modifier = modifier.fillMaxSize().padding(16.dp)
     ) {
-        Text(
-            text = stringResource(R.string.scan_for_bt_devices_label),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
+        ScreenHeader(
+            isScanning = isScanning,
+            foundDevicesCount = foundDevices.size
         )
 
         Spacer(Modifier.height(16.dp))
 
-        if (isScanning) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = stringResource(R.string.scan_in_progress_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.secondary
-                )
-            }
-        } else if (foundDevices.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.found_devices_label)
-                    .format(foundDevices.size, if (foundDevices.size > 1)
-                        stringResource(R.string.found_devices_label_plural) else
-                        stringResource(R.string.found_devices_label_singular)
-                    ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
         Spacer(Modifier.height(16.dp))
 
         if (foundDevices.isEmpty() && !isScanning) {
@@ -97,51 +67,13 @@ fun StoreNearbyDevicesScreen(
                 modifier = Modifier.weight(1f)
             ) {
                 items(foundDevices) { device ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = device.name.ifBlank {
-                                        stringResource(R.string.unknown_device_name)
-                                    },
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = stringResource(R.string.mac_address_label)
-                                        .format(device.macAddress),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.outline
-                                )
-                                Spacer(Modifier.height(4.dp))
-
-                                val signalColor = when {
-                                    device.rssi > -60 -> MaterialTheme.colorScheme.primary // strong signal
-                                    device.rssi > -80 -> MaterialTheme.colorScheme.secondary // moderate signal
-                                    else -> MaterialTheme.colorScheme.error // weak signal
-                                }
-                                Text(
-                                    text = stringResource(R.string.signal_text)
-                                        .format(device.rssi),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = signalColor
-                                )
-                            }
-
-                            Button(
-                                enabled = !isScanning,
-                                onClick = { onSaveDevice(device) },
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.save_position_button_caption),
-                                )
-                            }
-                        }
-                    }
+                    DeviceCard(
+                        deviceName = device.name,
+                        deviceMacAddress = device.macAddress,
+                        deviceRssi = device.rssi,
+                        isSaveButtonEnabled = !isScanning,
+                        onSaveDevice = { onSaveDevice(device) }
+                    )
                 }
             }
         }
@@ -172,6 +104,120 @@ fun StoreNearbyDevicesScreen(
                     stringResource(R.string.stop_scan_button_caption) else
                     stringResource(R.string.start_scan_button_caption)
             )
+        }
+    }
+}
+
+/**
+ * Defines a header for the StoreNearbyDevices screen.
+ * @param isScanning Flag whether scanning is in progress.
+ * @param foundDevicesCount Number of found devices.
+ */
+@Composable
+private fun ScreenHeader(
+    isScanning: Boolean,
+    foundDevicesCount: Int
+) {
+    Text(
+        text = stringResource(R.string.scan_for_bt_devices_label),
+        style = MaterialTheme.typography.titleLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = TextAlign.Center
+    )
+
+    Spacer(Modifier.height(16.dp))
+
+    if (isScanning) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = stringResource(R.string.scan_in_progress_label),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.secondary
+            )
+        }
+    } else if (foundDevicesCount > 0) {
+        Text(
+            text = stringResource(R.string.found_devices_label)
+                .format(foundDevicesCount, if (foundDevicesCount > 1)
+                    stringResource(R.string.found_devices_label_plural) else
+                    stringResource(R.string.found_devices_label_singular)
+                ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+/**
+ * Defines a single device card.
+ * @param deviceName Name of the device.
+ * @param deviceMacAddress MAC address of the device.
+ * @param deviceRssi Value of RSSI for the device.
+ * @param isSaveButtonEnabled Flag whether save button is enabled.
+ * @param onSaveDevice Callback to use when saving a device.
+ */
+@Composable
+private fun DeviceCard(
+    deviceName: String,
+    deviceMacAddress: String,
+    deviceRssi: Float,
+    isSaveButtonEnabled: Boolean,
+    onSaveDevice: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = deviceName.ifBlank {
+                        stringResource(R.string.unknown_device_name)
+                    },
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = stringResource(R.string.mac_address_label)
+                        .format(deviceMacAddress),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Spacer(Modifier.height(4.dp))
+
+                val signalColor = when {
+                    deviceRssi > -60 -> MaterialTheme.colorScheme.primary // strong signal
+                    deviceRssi > -80 -> MaterialTheme.colorScheme.secondary // moderate signal
+                    else -> MaterialTheme.colorScheme.error // weak signal
+                }
+                Text(
+                    text = stringResource(R.string.signal_text)
+                        .format(deviceRssi),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = signalColor
+                )
+            }
+
+            Button(
+                enabled = isSaveButtonEnabled,
+                onClick = onSaveDevice,
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.save_position_button_caption),
+                )
+            }
         }
     }
 }

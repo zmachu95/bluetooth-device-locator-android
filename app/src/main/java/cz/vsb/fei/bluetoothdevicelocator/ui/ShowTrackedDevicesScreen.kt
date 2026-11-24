@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
@@ -43,40 +44,12 @@ fun ShowTrackedDevicesScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = {
-                Text(
-                    text = stringResource(R.string.delete_all_devices_caption)
-                )
+        ConfirmDeleteAllDevicesDialog(
+            onConfirm = {
+                onDeleteAllDevices()
+                showDeleteDialog = false
             },
-            text = {
-                Text(
-                    text = stringResource(R.string.delete_all_devices_text)
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteAllDevices()
-                        showDeleteDialog = false
-                    },
-                    colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text(
-                        text = stringResource(R.string.delete_all_button_caption)
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(
-                        text =  stringResource(R.string.cancel_button_caption)
-                    )
-                }
-            }
+            onDismiss = { showDeleteDialog = false }
         )
     }
 
@@ -95,7 +68,11 @@ fun ShowTrackedDevicesScreen(
             }
         } else {
             Text(
-                text = stringResource(R.string.select_device_prompt).format(devices.size),
+                text = if (devices.size == 1) {
+                    stringResource(R.string.select_device_prompt_singular)
+                } else {
+                    stringResource(R.string.select_device_prompt_plural)
+                }.format(devices.size),
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
@@ -108,85 +85,13 @@ fun ShowTrackedDevicesScreen(
                 modifier = Modifier.weight(1f)
             ) {
                 items(devices) { device ->
-                    /* Card design by Google Gemini */
-                    Card(
-                        modifier = Modifier.fillMaxWidth().clickable {
-                            onUseLastLocation(device.deviceId)
-                        }
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = device.name,
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-
-                                    Spacer(Modifier.height(2.dp))
-
-                                    Text(
-                                        text = stringResource(R.string.mac_address_label)
-                                            .format(device.macAddress),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.outline
-                                    )
-                                }
-
-                                IconButton(
-                                    onClick = { onDeleteDevice(device.deviceId) }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = stringResource(R.string.delete_device_icon_description),
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                }
-                            }
-
-                            Spacer(Modifier.height(12.dp))
-
-                            HorizontalDivider(
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-
-                            Spacer(Modifier.height(8.dp))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.tracked_devices_card_prompt),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-
-                                OutlinedButton(
-                                    onClick = { onSelectLocation(device.deviceId) },
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.secondary
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.LocationOn,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp))
-
-                                    Spacer(Modifier.width(4.dp))
-
-                                    Text(
-                                        text = stringResource(R.string.show_history_button_caption),
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    DeviceCard(
+                        deviceName = device.name,
+                        deviceMacAddress = device.macAddress,
+                        deleteDeviceCallback = { onDeleteDevice(device.deviceId) },
+                        onCardClick = { onUseLastLocation(device.deviceId) },
+                        selectLocationCallback = { onSelectLocation(device.deviceId) }
+                    )
                 }
             }
 
@@ -206,6 +111,179 @@ fun ShowTrackedDevicesScreen(
                     color = MaterialTheme.colorScheme.error
                 )
             }
+        }
+    }
+}
+
+/**
+ * Defines warning dialog for deleting all devices.
+ * @param onConfirm Callback when confirming deletion.
+ * @param onDismiss Callback when dismissing the dialog.
+ */
+@Composable
+private fun ConfirmDeleteAllDevicesDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = stringResource(R.string.delete_all_devices_caption)
+            )
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.delete_all_devices_text)
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.delete_all_button_caption)
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss
+            ) {
+                Text(
+                    text =  stringResource(R.string.cancel_button_caption)
+                )
+            }
+        }
+    )
+}
+
+/**
+ * Defines a single device card. Design by Google Gemini.
+ * @param deviceName Name of the device.
+ * @param deviceMacAddress MAC address of the device.
+ * @param deleteDeviceCallback Callback to use when deleting the device.
+ * @param onCardClick Callback to use when clicking the card.
+ * @param selectLocationCallback Callback to use when selecting a specific device location.
+ */
+@Composable
+private fun DeviceCard(
+    deviceName: String,
+    deviceMacAddress: String,
+    deleteDeviceCallback: () -> Unit,
+    onCardClick: () -> Unit,
+    selectLocationCallback: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onCardClick)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            DeviceCardTopRow(
+                deviceName = deviceName,
+                deviceMacAddress = deviceMacAddress,
+                deleteDeviceCallback = deleteDeviceCallback
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            DeviceCardBottomRow(
+                selectLocationCallback = selectLocationCallback
+            )
+        }
+    }
+}
+
+/**
+ * Defines bottom row of the device card.
+ * @param selectLocationCallback Callback to use when selecting a specific device location.
+ */
+@Composable
+private fun DeviceCardBottomRow(
+    selectLocationCallback: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.tracked_devices_card_prompt),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        OutlinedButton(
+            onClick = selectLocationCallback,
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.secondary
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.LocationOn,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp))
+
+            Spacer(Modifier.width(4.dp))
+
+            Text(
+                text = stringResource(R.string.show_history_button_caption),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+/**
+ * Defines top row of the device card.
+ * @param deviceName Name of the device.
+ * @param deviceMacAddress MAC address of the device.
+ * @param deleteDeviceCallback Callback to use when deleting the device.
+ */
+@Composable
+private fun DeviceCardTopRow(
+    deviceName: String,
+    deviceMacAddress: String,
+    deleteDeviceCallback: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = deviceName,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(Modifier.height(2.dp))
+
+            Text(
+                text = stringResource(R.string.mac_address_label).format(deviceMacAddress),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline
+            )
+        }
+
+        IconButton(
+            onClick = deleteDeviceCallback
+        ) {
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = stringResource(R.string.delete_device_icon_description),
+                tint = MaterialTheme.colorScheme.error
+            )
         }
     }
 }
