@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -12,6 +13,7 @@ import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +28,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import cz.vsb.fei.bluetoothdevicelocator.R
 import cz.vsb.fei.bluetoothdevicelocator.data.DeviceEntity
 import cz.vsb.fei.bluetoothdevicelocator.data.LocationData
@@ -102,6 +107,8 @@ private const val RSSI_PROXIMITY_METER_MAX_FRACTION = 1f
  * @param currentLocation Current location of the phone.
  * @param currentRssi Currently measured RSSI for the device.
  * @param azimuthDegrees Current azimuth of the phone in degrees.
+ * @param onResumeSensors Callback used when resuming sensors.
+ * @param onPauseSensors Callback used when pausing sensors.
  * @param modifier Modifier to apply to the layout.
  * @param mapContent Content of the map.
  */
@@ -113,9 +120,29 @@ fun FindDeviceScreen(
     currentLocation: LocationData?,
     currentRssi: Float?,
     azimuthDegrees: Float,
+    onResumeSensors: () -> Unit,
+    onPauseSensors: () -> Unit,
     modifier: Modifier = Modifier,
-    mapContent: @Composable () -> Unit = { MapPlaceholder() }
+    mapContent: (@Composable () -> Unit)? = null
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    // register listener which will restart / stop Bluetooth, location and sensor updates
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> onResumeSensors()
+                Lifecycle.Event.ON_STOP -> onPauseSensors()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     if (device == null || deviceLocation == null) {
         Column(
             verticalArrangement = Arrangement.Center,
@@ -159,14 +186,23 @@ fun FindDeviceScreen(
                 currentLocation = currentLocation,
             )
 
-            // TODO: change this to Google Maps
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(16.dp)),
+                contentAlignment = Alignment.BottomEnd
             ) {
-                mapContent()
+                if (mapContent != null) {
+                    mapContent()
+                } else {
+                    OsmDeviceLocatorMap(
+                        device = device,
+                        deviceLocation = deviceLocation,
+                        deviceLocationRssi = deviceLocationRssi,
+                        currentLocation = currentLocation
+                    )
+                }
             }
 
             SensorDashboardCard(
@@ -428,7 +464,10 @@ private fun FindDeviceScreenPreview() {
             deviceLocationRssi = -50.0f,
             currentLocation = mockCurrentLocation,
             currentRssi = -70f,
-            azimuthDegrees = 90f
+            azimuthDegrees = 90f,
+            onResumeSensors = {},
+            onPauseSensors = {},
+            mapContent = {MapPlaceholder()}
         )
     }
 }

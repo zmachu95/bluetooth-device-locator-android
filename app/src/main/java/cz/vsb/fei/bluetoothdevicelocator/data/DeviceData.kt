@@ -1,5 +1,7 @@
 package cz.vsb.fei.bluetoothdevicelocator.data
 
+import kotlin.time.Clock
+
 /**
  * Data class representing single device data.
  */
@@ -18,5 +20,11 @@ data class DeviceData(
     /**
      * Received signal strength indication in (dBm).
      */
-    val rssi: Float
+    val rssi: Float,
+
+    /**
+     * Timestamp of the data.
+     */
+    val timestamp: Long = Clock.System.now().toEpochMilliseconds()
+
 )

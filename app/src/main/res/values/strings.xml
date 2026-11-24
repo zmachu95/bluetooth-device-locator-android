@@ -55,4 +55,5 @@
     <string name="compass_body_image">Compass body</string>
     <string name="compass_arrow_image">Compass arrow</string>
     <string name="proximity_thermometer_image">Signal strength thermometer</string>
+    <string name="my_location_label">My location</string>
 </resources>

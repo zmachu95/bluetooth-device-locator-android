@@ -67,4 +67,5 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     ksp(libs.androidx.room3.compiler)
     implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.osmdroid.android)
 }

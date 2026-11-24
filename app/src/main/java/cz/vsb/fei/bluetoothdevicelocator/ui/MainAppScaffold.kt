@@ -226,6 +226,8 @@ fun MainAppScaffold(
                     currentLocation = currentLocation,
                     currentRssi = currentDeviceRssi,
                     azimuthDegrees = azimuthAngle,
+                    onResumeSensors = viewModel::resumeFindDeviceSensors,
+                    onPauseSensors = viewModel::pauseFindDeviceSensors,
                     modifier = Modifier.padding(innerPadding)
                 )
             }
@@ -296,6 +298,8 @@ fun MainAppScaffoldPreview() {
         override fun removeAllDevices() {}
         override fun removeDeviceLocation(deviceId: Long, locationId: Long) {}
         override fun removeDeviceLocationsButLast(deviceId: Long) {}
+        override fun pauseFindDeviceSensors() {}
+        override fun resumeFindDeviceSensors() {}
     }
 
     MaterialTheme {

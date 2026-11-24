@@ -15,6 +15,12 @@ import cz.vsb.fei.bluetoothdevicelocator.data.DeviceData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlin.time.Clock
+
+/**
+ * Maximal age of single device data record from continuous scanning in milliseconds.
+ */
+private const val CONTINUOUS_SCAN_DATA_MAX_AGE_MILLIS: Long = 30000L
 
 /**
  * Enables communication with Bluetooth.
@@ -171,7 +177,12 @@ class BluetoothGateway(private val context: Context) {
     private fun onDiscoveryFinished() {
         if (_scanState.value == BluetoothScanState.CONTINUOUS_SCAN) {
             /* clear the map to ensure no far-away or disabled devices are present there */
-            _foundDevices.update { emptyMap() }
+            _foundDevices.update { currentMap ->
+                currentMap.filterValues { data ->
+                    Clock.System.now().toEpochMilliseconds() - data.timestamp <=
+                        CONTINUOUS_SCAN_DATA_MAX_AGE_MILLIS
+                }
+            }
             startBluetoothClassicScanning(false)
         } else {
             stopScan()

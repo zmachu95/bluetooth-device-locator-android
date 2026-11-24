@@ -56,4 +56,5 @@
     <string name="compass_body_image">Tělo kompasu</string>
     <string name="compass_arrow_image">Střelka kompasu</string>
     <string name="proximity_thermometer_image">Teploměr se sílou signálu</string>
+    <string name="my_location_label">Moje poloha</string>
 </resources>

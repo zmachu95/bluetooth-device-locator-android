@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.location.LocationManager
+import android.os.Build
 
 /**
  * Broadcast receiver for location services.
@@ -30,8 +31,14 @@ class LocationBroadcastReceiver(
          */
         fun areLocationServicesEnabled(context: Context): Boolean {
             val locationManager = context.getSystemService(LocationManager::class.java)
-            return locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
+
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                /* this allows to get the exact answer */
+                locationManager?.isLocationEnabled == true
+            } else {
+                locationManager?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
                     || locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+            }
         }
     }
 

@@ -93,6 +93,11 @@ abstract class LocatorViewModel : ViewModel() {
     abstract fun navigateBack()
 
     /**
+     * Pauses reading Bluetooth, compass and location updates.
+     */
+    abstract fun pauseFindDeviceSensors()
+
+    /**
      * Removes all devices and their locations from the database.
      */
     abstract fun removeAllDevices()
@@ -115,6 +120,11 @@ abstract class LocatorViewModel : ViewModel() {
      * @param deviceId Device's ID.
      */
     abstract fun removeDeviceLocationsButLast(deviceId: Long)
+
+    /**
+     * Resumes reading Bluetooth, compass and location updates.
+     */
+    abstract fun resumeFindDeviceSensors()
 
     /**
      * Inserts a device with current location into the database.

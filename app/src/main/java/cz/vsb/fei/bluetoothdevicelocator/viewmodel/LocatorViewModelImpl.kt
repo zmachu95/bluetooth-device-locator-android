@@ -176,6 +176,12 @@ class LocatorViewModelImpl(
         compassGateway.stopCompassUpdates()
     }
 
+    override fun pauseFindDeviceSensors() {
+        bluetoothGateway.stopScan()
+        locationGateway.stopLocationUpdates()
+        compassGateway.stopCompassUpdates()
+    }
+
     override fun removeAllDevices() {
         viewModelScope.launch {
             repository.removeAllDevices()
@@ -198,6 +204,12 @@ class LocatorViewModelImpl(
         viewModelScope.launch {
             repository.removeDeviceLocationsButLast(deviceId)
         }
+    }
+
+    override fun resumeFindDeviceSensors() {
+        bluetoothGateway.startScan(isContinuous = true)
+        locationGateway.startLocationUpdates()
+        compassGateway.startCompassUpdates()
     }
 
     override fun saveDeviceWithLocation(

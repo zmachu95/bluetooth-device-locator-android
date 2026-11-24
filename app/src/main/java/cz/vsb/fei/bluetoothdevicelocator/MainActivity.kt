@@ -1,5 +1,6 @@
 package cz.vsb.fei.bluetoothdevicelocator
 
+import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
@@ -27,7 +28,8 @@ class MainActivity : ComponentActivity() {
      * Cached array of permissions needed for the Bluetooth Locator application.
      */
     private val applicationPermissions =
-        BluetoothGateway.getBluetoothPermissions() + LocationGateway.LOCATION_PERMISSIONS
+        (BluetoothGateway.getBluetoothPermissions() + LocationGateway.LOCATION_PERMISSIONS)
+            .plus(Manifest.permission.INTERNET)
 
     /**
      * Launcher for requesting necessary permissions to perform single Bluetooth scan for nearby devices.
